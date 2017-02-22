@@ -91,16 +91,16 @@ inquirer
     .prompt(questions)
     .then( (answers) ->
         console.log '\n[+] Webapp summary:'
-        console.log JSON.stringify answers, null, '  '
+        console.log JSON.stringify(answers, null, 2)
 
         config = {}
-        config.APP_NAME         = answers.name
-        config.APP_TITLE        = answers.title
-        config.DESCRIPTION      = answers.desc
-        config.KEYWORDS         = ["app","easy","sass","less","coffee","jade"]
-        config.PORT             = 8080
-        config.REFRESH_PORT     = 8081
-        config.ERROR_EVT        = "err"
+        config.APP_NAME            = answers.name
+        config.APP_TITLE           = answers.title
+        config.DESCRIPTION         = answers.desc
+        config.KEYWORDS            = ["app","easy","sass","less","coffee","jade"]
+        config.PORT                = 8080
+        config.REFRESH_PORT        = 8081
+        config.ERROR_EVT           = "err"
         config.APP_BUILD_CLIENT    = "./build/client"
         config.APP_BUILD_SERVER    = "./build/server"
         config.PATH_CLIENT         = "./app/client"
@@ -119,12 +119,17 @@ inquirer
 
         nodegit.Clone("https://github.com/x42en/website-skeleton.git", www, {})
             .then( (repo) ->
-                puts = (error, stdout, stderr) -> sys.puts(stdout)
-                # Remove .git and README
-                console.log "[+] Clean directory ..."
-                exec "rm -rf #{www}/.git"
-                exec "rm #{www}/README.md"
                 
+                try
+                    # Remove .git and README
+                    console.log "[+] Clean directory ..."
+                    exec "rm -rf #{www}/.git"
+                    exec "rm #{www}/README.md"
+                catch err
+                    console.log "[!] Error while cleaning webapp directory:"
+                    console.log err
+                    return false
+
                 try  
                     # Build app.config.json
                     console.log "[+] Store config file ..."
@@ -134,14 +139,27 @@ inquirer
                     console.log err
                     return false
 
-                # Exec npm install
-                console.log "[+] Please wait while 'npm install' ..."
-                exec("npm install",{cwd: www})
+                try
+                    # Exec npm install
+                    console.log "[+] Please wait while 'npm install' ..."
+                    exec("npm install",{cwd: www})
+                catch err
+                    console.log "[!] Error while running 'npm install':"
+                    console.log err
+                    return false
 
                 # If user ask for auto-configuration
                 if answers.configure
                     # CHeck plateform
                     if _.includes(platform.os.toString().toLowerCase(), 'linux')
+                        try
+                            # Modify website owner
+                            exec "chgrp -R www-data #{www}"
+                        catch err
+                            console.log "[!] Error while correct webapp group owner:"
+                            console.log err
+                            return false
+                        
                         # Check server
                         if answers.server is 'nginx'
                             host_available = "/etc/nginx/sites-available/#{answers.name.toLowerCase()}"
@@ -191,11 +209,8 @@ inquirer
                             console.log err
                             return false
 
-                        exec "ln -s #{host_available} #{host_enable}"
-                        # Modify website owner
-                        exec "chgrp -R www-data #{www}"
-
                         try
+                            exec "ln -s #{host_available} #{host_enable}"
                             # Restart server
                             console.log "[+] Restart #{answers.server} ..."
                             exec "service #{answers.server} restart"
@@ -206,17 +221,19 @@ inquirer
                             console.log "[!] Error while modifying hosts file:"
                             console.log err
                             return false
-
-                        # Show url to user
-                        
+                    
+                    else if _.includes(platform.os.toString().toLowerCase(), 'mac')
+                        # Catch mac errors
+                        console.log "[!] Sorry we do not support mac platform yet for auto-configuration ..."
+                        return false
                     else
-                        # Catch windows and mac errors ;)
-                        console.log "[!] Sorry we do not support your plateform yet for auto-configuration ..."
+                        # Catch windows errors
+                        console.log "[!] Sorry we do not support windows platform yet for auto-configuration ..."
                         return false
 
                 # Final thoughts
                 console.log "\n[+] Go to -> #{www}"
-                console.log "[+] Execute 'gulp' to compile and launch server..."
+                console.log "[+] Type 'gulp' to compile and launch server..."
                 # Show url to user
                 console.log "[+] Access your webapp using: http://#{answers.url}\n"
 
