@@ -1,7 +1,7 @@
 {
-  "name": "webcreator",
-  "version": "1.0.0",
-  "description": "Website creator",
+  "name": "awac",
+  "version": "0.1.0",
+  "description": "Angular WebApp Creator",
   "main": "main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -33,5 +33,6 @@
     "nodegit": "^0.17.0",
     "platform": "^1.3.3",
     "sync-exec": "^0.6.2"
-  }
+  },
+  "devDependencies": {}
 }
