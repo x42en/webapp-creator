@@ -136,7 +136,7 @@ inquirer
 
                 # Exec npm install
                 console.log "[+] Please wait while 'npm install' ..."
-                # exec("npm install",{cwd: www})
+                exec("npm install",{cwd: www})
 
                 # If user ask for auto-configuration
                 if answers.configure
