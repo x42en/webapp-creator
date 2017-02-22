@@ -109,7 +109,7 @@
   inquirer.prompt(questions).then(function(answers) {
     var config, www;
     console.log('\n[+] Webapp summary:');
-    console.log(JSON.stringify(answers, null, '  '));
+    console.log(JSON.stringify(answers, null, 2));
     config = {};
     config.APP_NAME = answers.name;
     config.APP_TITLE = answers.title;
@@ -132,13 +132,17 @@
     console.log("\n[+] Retrieve webapp skeleton ...");
     www = answers.init_dir + "/" + (answers.name.toLowerCase());
     return nodegit.Clone("https://github.com/x42en/website-skeleton.git", www, {}).then(function(repo) {
-      var err, error1, error2, error3, host_available, host_content, host_enable, puts;
-      puts = function(error, stdout, stderr) {
-        return sys.puts(stdout);
-      };
-      console.log("[+] Clean directory ...");
-      exec("rm -rf " + www + "/.git");
-      exec("rm " + www + "/README.md");
+      var err, error, error1, error2, error3, error4, error5, host_available, host_content, host_enable;
+      try {
+        console.log("[+] Clean directory ...");
+        exec("rm -rf " + www + "/.git");
+        exec("rm " + www + "/README.md");
+      } catch (error) {
+        err = error;
+        console.log("[!] Error while cleaning webapp directory:");
+        console.log(err);
+        return false;
+      }
       try {
         console.log("[+] Store config file ...");
         fs.writeFile(www + "/app.config.json", JSON.stringify(config, null, 4), 'utf-8');
@@ -148,13 +152,31 @@
         console.log(err);
         return false;
       }
-      console.log("[+] Please wait while 'npm install' ...");
+      try {
+        console.log("[+] Please wait while 'npm install' ...");
+        exec("npm install", {
+          cwd: www
+        });
+      } catch (error2) {
+        err = error2;
+        console.log("[!] Error while running 'npm install':");
+        console.log(err);
+        return false;
+      }
       if (answers.configure) {
         if (_.includes(platform.os.toString().toLowerCase(), 'linux')) {
+          try {
+            exec("chgrp -R www-data " + www);
+          } catch (error3) {
+            err = error3;
+            console.log("[!] Error while correct webapp group owner:");
+            console.log(err);
+            return false;
+          }
           if (answers.server === 'nginx') {
             host_available = "/etc/nginx/sites-available/" + (answers.name.toLowerCase());
             host_enable = "/etc/nginx/sites-enabled/" + (answers.name.toLowerCase());
-            host_content = "server {\n\tlisten 80;\n\n\tserver_name " + answers.url + " www." + answers.url + ";\n\n\troot " + www + "/build/client;\n\tindex index.php;\n\n\tcharset utf-8;\n\n\taccess_log /var/log/nginx/" + (answers.name.toLowerCase()) + ".error.log;\n\terror_log /var/log/nginx/" + (answers.name.toLowerCase()) + ".access.log;\n\n\tlocation = /favicon.ico { access_log off; log_not_found off; }\n\n\tlocation / {\n        try_files $uri $uri/ /index.php?$query_string;\n\t}\n\n\tsendfile off;\n\n\tlocation ~ \.php$ {\n         include snippets/fastcgi-php.conf;\n         fastcgi_pass unix:/var/run/php5-fpm.sock;\n         include fastcgi_params;\n \t}\n\n \tlocation ~ /\.ht {\n         deny all;\n \t}\n}";
+            host_content = "server {\n\tlisten 80;\n\n\tserver_name " + answers.url + " www." + answers.url + ";\n\n\troot " + www + "/build/client;\n\tindex index.php;\n\n\tcharset utf-8;\n\n\taccess_log /var/log/nginx/" + (answers.name.toLowerCase()) + ".error.log;\n\terror_log /var/log/nginx/" + (answers.name.toLowerCase()) + ".access.log;\n\n\tlocation = /favicon.ico { access_log off; log_not_found off; }\n\n\tlocation / {\n        try_files $uri $uri/ /index.php?$query_string;\n\t}\n\n\tsendfile off;\n\n\tlocation ~ \.php$ {\n         include snippets/fastcgi-php.conf;\n         fastcgi_pass unix:/var/run/php5-fpm.sock;\n         include fastcgi_params;\n \t}\n\n \tlocation ~ /\.ht {\n         deny all;\n \t}\n}\n";
           } else {
             host_available = "/etc/apache2/sites-available/" + (answers.name.toLowerCase());
             host_enable = "/etc/apache2/sites-enable/" + (answers.name.toLowerCase());
@@ -163,31 +185,33 @@
           try {
             console.log("[+] Write " + answers.server + " config file for http://" + answers.url);
             fs.writeFile(host_available, host_content, 'utf-8');
-          } catch (error2) {
-            err = error2;
+          } catch (error4) {
+            err = error4;
             console.log("[!] Error while adding vhost file:");
             console.log(err);
             return false;
           }
-          exec("ln -s " + host_available + " " + host_enable);
-          exec("chgrp -R www-data " + www);
           try {
+            exec("ln -s " + host_available + " " + host_enable);
             console.log("[+] Restart " + answers.server + " ...");
             exec("service " + answers.server + " restart");
-            fs.appendFile('/etc/hosts', "127.0.0.1    " + answers.url + " www." + answers.url, 'utf-8');
-          } catch (error3) {
-            err = error3;
+            fs.appendFile('/etc/hosts', "127.0.0.1    " + answers.url + " www." + answers.url + "\n", 'utf-8');
+          } catch (error5) {
+            err = error5;
             console.log("[!] Error while modifying hosts file:");
             console.log(err);
             return false;
           }
+        } else if (_.includes(platform.os.toString().toLowerCase(), 'mac')) {
+          console.log("[!] Sorry we do not support mac platform yet for auto-configuration ...");
+          return false;
         } else {
-          console.log("[!] Sorry we do not support your plateform yet for auto-configuration ...");
+          console.log("[!] Sorry we do not support windows platform yet for auto-configuration ...");
           return false;
         }
       }
       console.log("\n[+] Go to -> " + www);
-      console.log("[+] Execute 'gulp' to compile and launch server...");
+      console.log("[+] Type 'gulp' to compile and launch server...");
       console.log("[+] Access your webapp using: http://" + answers.url + "\n");
       return console.log("[+] Happy C0d1ng !! ;) \n");
     })["catch"](function(err) {
