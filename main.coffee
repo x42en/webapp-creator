@@ -1,4 +1,5 @@
 fs         = require "fs"
+path       = require "path"
 apacheconf = require "apacheconf"
 isRoot     = require "is-root"
 inquirer   = require "inquirer"
@@ -40,10 +41,9 @@ if _.includes(platform.os.toString().toLowerCase(), 'win')
         if err
             throw err
 
-        console.log config
         return false
 
-    DEFAULT_WWW = 'C:/wamp/www'
+    DEFAULT_WWW = 'C:\\\\wamp\\www'
 else if _.includes(platform.os.toString().toLowerCase(), 'mac')
     #Retrieve document Root from MAMP config
     apacheconf '/etc/apache2/httpd.conf', (err, config, parser) ->
