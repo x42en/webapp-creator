@@ -21,11 +21,11 @@ if _.includes(platform.os.toString().toLowerCase(), 'win')
 
     # Get wamp apache version
     apache = 'apache'
-    fs.readdir "C:\\\\#{wamp}\\bin\\apache\\", (err, items) ->
+    fs.readdir "C:\\\\#{wamp}\\bin\\apache\\", (err, items) =>
         for tmp in items
-            console.log tmp
             if tmp.lastIndexOf('apache', 0) is 0
                 apache = tmp
+                console.log "[+] You are using #{apache}"
                 break
 
     #Retrieve document Root from WAMP config

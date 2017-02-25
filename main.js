@@ -31,21 +31,23 @@
   if (_.includes(platform.os.toString().toLowerCase(), 'win')) {
     wamp = fs.existsSync('C:\\\\wamp\\') ? "wamp" : "wamp64";
     apache = 'apache';
-    fs.readdir("C:\\\\" + wamp + "\\bin\\apache\\", function(err, items) {
-      var i, len, results, tmp;
-      results = [];
-      for (i = 0, len = items.length; i < len; i++) {
-        tmp = items[i];
-        console.log(tmp);
-        if (tmp.lastIndexOf('apache', 0) === 0) {
-          apache = tmp;
-          break;
-        } else {
-          results.push(void 0);
+    fs.readdir("C:\\\\" + wamp + "\\bin\\apache\\", (function(_this) {
+      return function(err, items) {
+        var i, len, results, tmp;
+        results = [];
+        for (i = 0, len = items.length; i < len; i++) {
+          tmp = items[i];
+          if (tmp.lastIndexOf('apache', 0) === 0) {
+            apache = tmp;
+            console.log("[+] You are using " + apache);
+            break;
+          } else {
+            results.push(void 0);
+          }
         }
-      }
-      return results;
-    });
+        return results;
+      };
+    })(this));
     apacheconf("C:\\\\" + wamp + "\\bin\\apache\\" + apache + "\\conf\\httpd.conf", function(err, config, parser) {
       if (err) {
         throw err;
