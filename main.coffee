@@ -1,11 +1,12 @@
-fs       = require "fs"
-isRoot   = require "is-root"
-inquirer = require "inquirer"
-nodegit  = require "nodegit"
-platform = require "platform"
-sys      = require "util"
-exec     = require "sync-exec"
-_        = require "lodash"
+fs         = require "fs"
+apacheconf = require "apacheconf"
+isRoot     = require "is-root"
+inquirer   = require "inquirer"
+nodegit    = require "nodegit"
+platform   = require "platform"
+sys        = require "util"
+exec       = require "sync-exec"
+_          = require "lodash"
 
 VERSION  = '0.1.0'
 
@@ -15,8 +16,35 @@ console.log "[+] Welcome on AWAC v.#{VERSION}"
 console.log "[+] You are using #{platform.os}\n"
 
 if _.includes(platform.os.toString().toLowerCase(), 'windows')
+    # Get 32 or 64bit version
+    wamp = if fs.existsSync('C:\\\\wamp\\') then "wamp" else "wamp64"
+
+    # Get wamp apache version
+    fs.readdir "C:\\\\#{wamp}\\bin\\apache\\", (err, items) ->
+        for tmp in items
+            if tmp.startWith('apache')
+                apache = tmp
+                break
+
+    #Retrieve document Root from WAMP config
+    apacheconf "C:\\\\#{wamp}\\bin\\apache\\#{apache}\\conf\\httpd.conf", (err, config, parser) ->
+        if err
+            throw err
+
+        console.log config
+        return false
+
     DEFAULT_WWW = 'C:/wamp/www'
 else if _.includes(platform.os.toString().toLowerCase(), 'mac')
+    #Retrieve document Root from MAMP config
+    apacheconf '/etc/apache2/httpd.conf', (err, config, parser) ->
+        if err
+            throw err
+
+        console.log config
+        return false
+
+    DEFAULT_WWW = 'C:/wamp/www'
     DEFAULT_WWW = '/Applications/MAMP/htdocs'
 else
     DEFAULT_WWW = '/var/www'
@@ -198,7 +226,15 @@ inquirer
                         else
                             host_available = "/etc/apache2/sites-available/#{answers.name.toLowerCase()}"
                             host_enable    = "/etc/apache2/sites-enable/#{answers.name.toLowerCase()}"
-                            host_content   = ""
+                            host_content   = """<VirtualHost *:80>
+    \tDocumentRoot "#{www}"
+    ServerName #{url}
+    \t<Directory "#{www}"
+        Options Indexes FollowSymLinks MultiViews
+        AllowOverride all
+        Require local
+    \t</Directory>
+</VirtualHost>\n"""
 
                         try
                             # Write server vhost file
