@@ -15,7 +15,7 @@ console.log "\n..:: Angular WebApp Creator - [AWAC] ::..\n"
 console.log "[+] Welcome on AWAC v.#{VERSION}"
 console.log "[+] You are using #{platform.os}\n"
 
-if _.includes(platform.os.toString().toLowerCase(), 'windows')
+if _.includes(platform.os.toString().toLowerCase(), 'win')
     # Get 32 or 64bit version
     wamp = if fs.existsSync('C:\\\\wamp\\') then "wamp" else "wamp64"
 
@@ -228,7 +228,8 @@ inquirer
                             host_enable    = "/etc/apache2/sites-enable/#{answers.name.toLowerCase()}"
                             host_content   = """<VirtualHost *:80>
     \tDocumentRoot "#{www}"
-    ServerName #{url}
+    \tServerName #{url}
+    \tServerAlias www.#{url}
     \t<Directory "#{www}"
         Options Indexes FollowSymLinks MultiViews
         AllowOverride all
