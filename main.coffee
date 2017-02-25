@@ -21,7 +21,9 @@ if _.includes(platform.os.toString().toLowerCase(), 'win')
 
     # Get wamp apache version
     fs.readdir "C:\\\\#{wamp}\\bin\\apache\\", (err, items) ->
+        apache = 'apache'
         for tmp in items
+            console.log tmp
             if tmp.startWith('apache')
                 apache = tmp
                 break

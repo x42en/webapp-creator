@@ -32,9 +32,11 @@
     wamp = fs.existsSync('C:\\\\wamp\\') ? "wamp" : "wamp64";
     fs.readdir("C:\\\\" + wamp + "\\bin\\apache\\", function(err, items) {
       var apache, i, len, results, tmp;
+      apache = 'apache';
       results = [];
       for (i = 0, len = items.length; i < len; i++) {
         tmp = items[i];
+        console.log(tmp);
         if (tmp.startWith('apache')) {
           apache = tmp;
           break;
