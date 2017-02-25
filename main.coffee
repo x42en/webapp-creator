@@ -20,8 +20,8 @@ if _.includes(platform.os.toString().toLowerCase(), 'win')
     wamp = if fs.existsSync('C:\\\\wamp\\') then "wamp" else "wamp64"
 
     # Get wamp apache version
+    apache = 'apache'
     fs.readdir "C:\\\\#{wamp}\\bin\\apache\\", (err, items) ->
-        apache = 'apache'
         for tmp in items
             console.log tmp
             if tmp.startWith('apache')
