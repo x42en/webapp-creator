@@ -28,7 +28,7 @@
 
   console.log("[+] You are using " + platform.os + "\n");
 
-  if (_.includes(platform.os.toString().toLowerCase(), 'windows')) {
+  if (_.includes(platform.os.toString().toLowerCase(), 'win')) {
     wamp = fs.existsSync('C:\\\\wamp\\') ? "wamp" : "wamp64";
     fs.readdir("C:\\\\" + wamp + "\\bin\\apache\\", function(err, items) {
       var apache, i, len, results, tmp;
@@ -212,7 +212,7 @@
           } else {
             host_available = "/etc/apache2/sites-available/" + (answers.name.toLowerCase());
             host_enable = "/etc/apache2/sites-enable/" + (answers.name.toLowerCase());
-            host_content = "<VirtualHost *:80>\n\tDocumentRoot \"" + www + "\"\nServerName " + url + "\n\t<Directory \"" + www + "\"\n    Options Indexes FollowSymLinks MultiViews\n    AllowOverride all\n    Require local\n\t</Directory>\n</VirtualHost>\n";
+            host_content = "<VirtualHost *:80>\n\tDocumentRoot \"" + www + "\"\n\tServerName " + url + "\n\tServerAlias www." + url + "\n\t<Directory \"" + www + "\"\n    Options Indexes FollowSymLinks MultiViews\n    AllowOverride all\n    Require local\n\t</Directory>\n</VirtualHost>\n";
           }
           try {
             console.log("[+] Write " + answers.server + " config file for http://" + answers.url);
