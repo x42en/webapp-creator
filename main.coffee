@@ -24,7 +24,7 @@ if _.includes(platform.os.toString().toLowerCase(), 'win')
     fs.readdir "C:\\\\#{wamp}\\bin\\apache\\", (err, items) ->
         for tmp in items
             console.log tmp
-            if tmp.startWith('apache')
+            if tmp.lastIndexOf('apache', 0) is 0
                 apache = tmp
                 break
 

@@ -37,7 +37,7 @@
       for (i = 0, len = items.length; i < len; i++) {
         tmp = items[i];
         console.log(tmp);
-        if (tmp.startWith('apache')) {
+        if (tmp.lastIndexOf('apache', 0) === 0) {
           apache = tmp;
           break;
         } else {
