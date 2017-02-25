@@ -15,18 +15,19 @@ console.log "\n..:: Angular WebApp Creator - [AWAC] ::..\n"
 console.log "[+] Welcome on AWAC v.#{VERSION}"
 console.log "[+] You are using #{platform.os}\n"
 
+getDirectories = (srcpath) ->
+    return fs.readdirSync(srcpath).filter(file => fs.statSync(path.join(srcpath, file)).isDirectory())
+
 if _.includes(platform.os.toString().toLowerCase(), 'win')
     # Get 32 or 64bit version
     wamp = if fs.existsSync('C:\\\\wamp\\') then "wamp" else "wamp64"
 
     # Get wamp apache version
-    apache = 'apache'
-    fs.readdir "C:\\\\#{wamp}\\bin\\apache\\", (err, items) =>
-        for tmp in items
-            if tmp.lastIndexOf('apache', 0) is 0
-                apache = tmp
-                console.log "[+] You are using #{apache}"
-                break
+    items = getDirectories "C:\\\\#{wamp}\\bin\\apache\\"
+    for apache in items
+        if apache.lastIndexOf('apache', 0) is 0
+            console.log "[+] You are using #{apache}"
+            break
 
     #Retrieve document Root from WAMP config
     apacheconf "C:\\\\#{wamp}\\bin\\apache\\#{apache}\\conf\\httpd.conf", (err, config, parser) ->
