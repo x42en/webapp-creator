@@ -1,4 +1,5 @@
 fs         = require "fs"
+path       = require('path').resolve(__dirname, file)
 apacheconf = require "apacheconf"
 isRoot     = require "is-root"
 inquirer   = require "inquirer"
@@ -16,7 +17,8 @@ console.log "[+] Welcome on AWAC v.#{VERSION}"
 console.log "[+] You are using #{platform.os}\n"
 
 getDirectories = (srcpath) ->
-    return fs.readdirSync(srcpath).filter(file => fs.statSync(path.join(srcpath, file)).isDirectory())
+    return fs.readdirSync(srcpath)
+        .filter(file => fs.statSync(path.join(srcpath, file)).isDirectory())
 
 if _.includes(platform.os.toString().toLowerCase(), 'win')
     # Get 32 or 64bit version
