@@ -1,5 +1,4 @@
 fs         = require "fs"
-path       = require('path').resolve(__dirname, file)
 apacheconf = require "apacheconf"
 isRoot     = require "is-root"
 inquirer   = require "inquirer"
