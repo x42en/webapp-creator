@@ -137,12 +137,13 @@ inquirer
         config.KEYWORDS            = ["app","easy","sass","less","coffee","jade"]
         config.PORT                = 8080
         config.REFRESH_PORT        = 8081
+        config.REFRESH_EVT         = "refresh"
         config.ERROR_EVT           = "err"
         config.APP_BUILD_CLIENT    = "./build/client"
         config.APP_BUILD_SERVER    = "./build/server"
         config.PATH_CLIENT         = "./app/client"
         config.PATH_SERVER         = "./app/server"
-        config.AUTOPREFIXER        = [ "last 2 versions", "> 5%", "Firefox ESR" ]
+        config.AUTOPREFIXER        = ["last 2 versions", "> 5%", "Firefox ESR"]
         config.INCLUDE_STYLES_PATH = ["./node_modules", "./bower_components", "./app/client"]
         config.SERVER_LIBS         = ["ioserver"]
         config.APP_BUNDLE          = "main.min.js"
@@ -237,8 +238,17 @@ inquirer
                             host_enable    = "/etc/apache2/sites-enable/#{answers.name.toLowerCase()}"
                             host_content   = """<VirtualHost *:80>
     \tDocumentRoot "#{www}"
-    \tServerName #{url}
-    \tServerAlias www.#{url}
+    \tServerName www.#{url}
+    \tServerAlias #{url}
+
+    \t# If an existing asset or directory is requested go to it as it is
+    \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -f [OR]
+    \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -d
+    \tRewriteRule ^ - [L]
+
+    \t# If the requested resource doesn't exist, use index.php
+    \tRewriteRule ^ /index.php
+
     \t<Directory "#{www}"
         Options Indexes FollowSymLinks MultiViews
         AllowOverride all
