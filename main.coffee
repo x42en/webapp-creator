@@ -133,8 +133,9 @@ inquirer
         config = {}
         config.APP_NAME            = answers.name
         config.APP_TITLE           = answers.title
-        config.DESCRIPTION         = answers.desc
-        config.KEYWORDS            = ["app","easy","sass","less","coffee","jade"]
+        config.APP_DESCRIPTION     = answers.desc
+        config.APP_KEYWORDS        = ["app","easy","sass","less","coffee","jade"]
+        config.APP_URL             = answers.url
         config.PORT                = 8080
         config.REFRESH_PORT        = 8081
         config.REFRESH_EVT         = "refresh"
