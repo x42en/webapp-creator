@@ -1,10 +1,13 @@
 {
-  "name": "awac",
+  "name": "nawac",
   "version": "0.1.0",
-  "description": "Angular WebApp Creator",
+  "description": "N-other Angular WebApp Creator",
   "main": "main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "nawac": "bin/main.js"
   },
   "repository": {
     "type": "git",
