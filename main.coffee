@@ -1,3 +1,9 @@
+`#!/usr/bin/env node
+`
+
+# Compile file using:
+# coffee -o bin/ -w --bare --no-header -c main.coffee
+
 fs         = require "fs"
 path       = require "path"
 apacheconf = require "apacheconf"
@@ -11,9 +17,9 @@ _          = require "lodash"
 
 VERSION  = '0.1.0'
 
-console.log "\n..:: Angular WebApp Creator - [AWAC] ::..\n"
+console.log "\n..:: N-other Angular WebApp Creator - [NAWAC] ::..\n"
 
-console.log "[+] Welcome on AWAC v.#{VERSION}"
+console.log "[+] Welcome on NAWAC v.#{VERSION}"
 console.log "[+] You are using #{platform.os}\n"
 
 getApacheDirectory = (rootDir) ->
@@ -156,7 +162,7 @@ inquirer
         console.log "\n[+] Retrieve webapp skeleton ..."
         www = "#{answers.init_dir}/#{answers.name.toLowerCase()}"
 
-        nodegit.Clone("https://github.com/x42en/website-skeleton.git", www, {})
+        nodegit.Clone("https://github.com/x42en/webapp-skeleton", www, {})
             .then( (repo) ->
                 
                 try
