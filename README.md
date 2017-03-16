@@ -1,6 +1,6 @@
-# Angular WebApp Creator - [AWAC]
+# N-other Angular WebApp Creator - [NAWAC]
 
-[![NPM](https://nodei.co/npm/awac.png?compact=true)](https://nodei.co/npm/awac/)
+[![NPM](https://nodei.co/npm/nawac.png?compact=true)](https://nodei.co/npm/nawac/)
 
 Create beautiful and complex webapp based on angular framework.
 WebApp support socket.io server defined easily, and some useful features as ui-router, ngTouch, drag-n-drop, tooltips...
@@ -17,12 +17,12 @@ Note: the process is actually only working for Linux, and has been tested on Deb
 
 Install with npm:
   ```sh
-    npm install -g awac
+    npm install -g nawac
   ```
 
 ## Usage
 
 Run creation process:
   ```sh
-    webapp
+    nawac
   ```
