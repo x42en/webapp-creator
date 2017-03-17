@@ -22,7 +22,7 @@ exec = require("sync-exec");
 
 _ = require("lodash");
 
-VERSION = '0.1.0';
+VERSION = '0.1.1';
 
 console.log("\n..:: N-other Angular WebApp Creator - [NAWAC] ::..\n");
 
