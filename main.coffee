@@ -15,7 +15,7 @@ sys        = require "util"
 exec       = require "sync-exec"
 _          = require "lodash"
 
-VERSION  = '0.1.1'
+VERSION  = '0.1.2'
 
 console.log "\n..:: N-other Angular WebApp Creator - [NAWAC] ::..\n"
 
@@ -59,7 +59,6 @@ else if _.includes(platform.os.toString().toLowerCase(), 'mac')
         console.log config
         return false
 
-    DEFAULT_WWW = 'C:/wamp/www'
     DEFAULT_WWW = '/Applications/MAMP/htdocs'
 else
     DEFAULT_WWW = '/var/www'
