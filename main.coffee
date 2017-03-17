@@ -97,6 +97,25 @@ questions = [
             return true
     },
     {
+        type: 'list'
+        name: 'site'
+        message: 'What is your project template ?'
+        choices: ['Simple', 'Custom']
+        filter: (val) ->
+            val.toLowerCase()
+    },
+    {
+        type: 'input'
+        name: 'git'
+        message: 'Enter the https github repository to use :'
+        validate: (name) ->
+            if name.substring(0,8) isnt 'https://'
+                return 'This does not appear to be a valid repository.'
+            return true
+        when: (answers) ->
+            return (answers.site is 'custom')
+    },
+    {
         type: 'input'
         name: 'name'
         message: 'What is your project name ?'
@@ -184,124 +203,141 @@ inquirer
                     console.log err
                     return false
 
-                try
-                    # Exec npm install
-                    console.log "[+] Please wait while 'npm install' ..."
-                    exec("npm install",{cwd: www})
-                catch err
-                    console.log "[!] Error while running 'npm install':"
-                    console.log err
-                    return false
-
-                # If user ask for auto-configuration
-                if answers.configure
-                    # CHeck plateform
-                    if _.includes(platform.os.toString().toLowerCase(), 'linux')
+                # Clone template choosen
+                console.log "\n[+] Retrieve webapp template ..."
+                nodegit.Clone("https://github.com/x42en/webapp-simple", "#{www}/app", {})
+                    .then( (repo) ->
                         try
-                            # Modify website owner
-                            exec "chgrp -R www-data #{www}"
+                            # Remove .git and README
+                            console.log "[+] Clean app directory ..."
+                            exec "rm -rf #{www}/app/.git"
+                            exec "rm #{www}/app/README.md"
                         catch err
-                            console.log "[!] Error while correct webapp group owner:"
-                            console.log err
-                            return false
-                        
-                        # Check server
-                        if answers.server is 'nginx'
-                            host_available = "/etc/nginx/sites-available/#{answers.name.toLowerCase()}"
-                            host_enable    = "/etc/nginx/sites-enabled/#{answers.name.toLowerCase()}"
-                            host_content   = """server {
-       \tlisten 80;
-
-       \tserver_name #{answers.url} www.#{answers.url};
-
-       \troot #{www}/build/client;
-       \tindex index.php;
-
-       \tcharset utf-8;
-
-       \taccess_log /var/log/nginx/#{answers.name.toLowerCase()}.error.log;
-       \terror_log /var/log/nginx/#{answers.name.toLowerCase()}.access.log;
-
-       \tlocation = /favicon.ico { access_log off; log_not_found off; }
-
-       \tlocation / {
-               try_files $uri $uri/ /index.php?$query_string;
-       \t}
-
-       \tsendfile off;
-
-       \tlocation ~ \.php$ {
-                include snippets/fastcgi-php.conf;
-                fastcgi_pass unix:/var/run/php5-fpm.sock;
-                include fastcgi_params;
-        \t}
-
-        \tlocation ~ /\.ht {
-                deny all;
-        \t}
-}\n"""
-                        else
-                            host_available = "/etc/apache2/sites-available/#{answers.name.toLowerCase()}"
-                            host_enable    = "/etc/apache2/sites-enable/#{answers.name.toLowerCase()}"
-                            host_content   = """<VirtualHost *:80>
-    \tDocumentRoot "#{www}"
-    \tServerName www.#{url}
-    \tServerAlias #{url}
-
-    \t# If an existing asset or directory is requested go to it as it is
-    \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -f [OR]
-    \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -d
-    \tRewriteRule ^ - [L]
-
-    \t# If the requested resource doesn't exist, use index.php
-    \tRewriteRule ^ /index.php
-
-    \t<Directory "#{www}"
-        Options Indexes FollowSymLinks MultiViews
-        AllowOverride all
-        Require local
-    \t</Directory>
-</VirtualHost>\n"""
-
-                        try
-                            # Write server vhost file
-                            console.log "[+] Write #{answers.server} config file for http://#{answers.url}"
-                            fs.writeFile host_available, host_content, 'utf-8'
-                        catch err  
-                            console.log "[!] Error while adding vhost file:"
+                            console.log "[!] Error while cleaning webapp directory:"
                             console.log err
                             return false
 
                         try
-                            exec "ln -s #{host_available} #{host_enable}"
-                            # Restart server
-                            console.log "[+] Restart #{answers.server} ..."
-                            exec "service #{answers.server} restart"
-
-                            # Add host entry for url
-                            fs.appendFile '/etc/hosts', "127.0.0.1    #{answers.url} www.#{answers.url}\n", 'utf-8'
+                            # Exec npm install
+                            console.log "[+] Please wait while 'npm install' ..."
+                            exec("npm install",{cwd: www})
                         catch err
-                            console.log "[!] Error while modifying hosts file:"
+                            console.log "[!] Error while running 'npm install':"
                             console.log err
                             return false
-                    
-                    else if _.includes(platform.os.toString().toLowerCase(), 'mac')
-                        # Catch mac errors
-                        console.log "[!] Sorry we do not support mac platform yet for auto-configuration ..."
-                        return false
-                    else
-                        # Catch windows errors
-                        console.log "[!] Sorry we do not support windows platform yet for auto-configuration ..."
-                        return false
 
-                # Final thoughts
-                console.log "\n[+] Go to -> #{www}"
-                console.log "[+] Type 'gulp' to compile and launch server..."
-                # Show url to user
-                console.log "[+] Access your webapp using: http://#{answers.url}\n"
+                        # If user ask for auto-configuration
+                        if answers.configure
+                            # CHeck plateform
+                            if _.includes(platform.os.toString().toLowerCase(), 'linux')
+                                try
+                                    # Modify website owner
+                                    exec "chgrp -R www-data #{www}"
+                                catch err
+                                    console.log "[!] Error while correct webapp group owner:"
+                                    console.log err
+                                    return false
+                                
+                                # Check server
+                                if answers.server is 'nginx'
+                                    host_available = "/etc/nginx/sites-available/#{answers.name.toLowerCase()}"
+                                    host_enable    = "/etc/nginx/sites-enabled/#{answers.name.toLowerCase()}"
+                                    host_content   = """server {
+               \tlisten 80;
 
-                console.log "[+] Happy C0d1ng !! ;) \n"
-                
+               \tserver_name #{answers.url} www.#{answers.url};
+
+               \troot #{www}/build/client;
+               \tindex index.php;
+
+               \tcharset utf-8;
+
+               \taccess_log /var/log/nginx/#{answers.name.toLowerCase()}.error.log;
+               \terror_log /var/log/nginx/#{answers.name.toLowerCase()}.access.log;
+
+               \tlocation = /favicon.ico { access_log off; log_not_found off; }
+
+               \tlocation / {
+                       try_files $uri $uri/ /index.php?$query_string;
+               \t}
+
+               \tsendfile off;
+
+               \tlocation ~ \.php$ {
+                        include snippets/fastcgi-php.conf;
+                        fastcgi_pass unix:/var/run/php5-fpm.sock;
+                        include fastcgi_params;
+                \t}
+
+                \tlocation ~ /\.ht {
+                        deny all;
+                \t}
+        }\n"""
+                                else
+                                    host_available = "/etc/apache2/sites-available/#{answers.name.toLowerCase()}"
+                                    host_enable    = "/etc/apache2/sites-enable/#{answers.name.toLowerCase()}"
+                                    host_content   = """<VirtualHost *:80>
+            \tDocumentRoot "#{www}"
+            \tServerName www.#{url}
+            \tServerAlias #{url}
+
+            \t# If an existing asset or directory is requested go to it as it is
+            \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -f [OR]
+            \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -d
+            \tRewriteRule ^ - [L]
+
+            \t# If the requested resource doesn't exist, use index.php
+            \tRewriteRule ^ /index.php
+
+            \t<Directory "#{www}"
+                Options Indexes FollowSymLinks MultiViews
+                AllowOverride all
+                Require local
+            \t</Directory>
+        </VirtualHost>\n"""
+
+                                try
+                                    # Write server vhost file
+                                    console.log "[+] Write #{answers.server} config file for http://#{answers.url}"
+                                    fs.writeFile host_available, host_content, 'utf-8'
+                                catch err  
+                                    console.log "[!] Error while adding vhost file:"
+                                    console.log err
+                                    return false
+
+                                try
+                                    exec "ln -s #{host_available} #{host_enable}"
+                                    # Restart server
+                                    console.log "[+] Restart #{answers.server} ..."
+                                    exec "service #{answers.server} restart"
+
+                                    # Add host entry for url
+                                    fs.appendFile '/etc/hosts', "127.0.0.1    #{answers.url} www.#{answers.url}\n", 'utf-8'
+                                catch err
+                                    console.log "[!] Error while modifying hosts file:"
+                                    console.log err
+                                    return false
+                            
+                            else if _.includes(platform.os.toString().toLowerCase(), 'mac')
+                                # Catch mac errors
+                                console.log "[!] Sorry we do not support mac platform yet for auto-configuration ..."
+                                return false
+                            else
+                                # Catch windows errors
+                                console.log "[!] Sorry we do not support windows platform yet for auto-configuration ..."
+                                return false
+
+                        # Final thoughts
+                        console.log "\n[+] Go to -> #{www}"
+                        console.log "[+] Type 'gulp' to compile and launch server..."
+                        # Show url to user
+                        console.log "[+] Access your webapp using: http://#{answers.url}\n"
+
+                        console.log "[+] Happy C0d1ng !! ;) \n"
+                    )
+                    .catch( (err) ->
+                        console.log "[!] Error while cloning git repo: #{err}"
+                    )        
                 
             )
             .catch( (err) ->

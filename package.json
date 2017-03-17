@@ -1,6 +1,6 @@
 {
   "name": "nawac",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "N-other Angular WebApp Creator",
   "main": "main.js",
   "scripts": {
@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/%3Ax42en/website-creator.git"
+    "url": "git+https://github.com/%3Ax42en/webapp-creator.git"
   },
   "keywords": [
     "Web",
@@ -26,9 +26,9 @@
   "author": "x42en",
   "license": "GPL-2.0",
   "bugs": {
-    "url": "https://github.com/%3Ax42en/website-creator/issues"
+    "url": "https://github.com/%3Ax42en/webapp-creator/issues"
   },
-  "homepage": "https://github.com/%3Ax42en/website-creator#readme",
+  "homepage": "https://github.com/%3Ax42en/webapp-creator#readme",
   "dependencies": {
     "apacheconf": "0.0.5",
     "inquirer": "^3.0.1",
@@ -38,5 +38,7 @@
     "platform": "^1.3.3",
     "sync-exec": "^0.6.2"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "coffee-script": "^1.12.4"
+  }
 }

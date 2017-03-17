@@ -109,6 +109,27 @@ questions = [
       return true;
     }
   }, {
+    type: 'list',
+    name: 'site',
+    message: 'What is your project template ?',
+    choices: ['Simple', 'Custom'],
+    filter: function(val) {
+      return val.toLowerCase();
+    }
+  }, {
+    type: 'input',
+    name: 'git',
+    message: 'Enter the https github repository to use :',
+    validate: function(name) {
+      if (name.substring(0, 8) !== 'https://') {
+        return 'This does not appear to be a valid repository.';
+      }
+      return true;
+    },
+    when: function(answers) {
+      return answers.site === 'custom';
+    }
+  }, {
     type: 'input',
     name: 'name',
     message: 'What is your project name ?',
@@ -172,8 +193,8 @@ inquirer.prompt(questions).then(function(answers) {
   config.APP_STYLES = ["main.min.css"];
   console.log("\n[+] Retrieve webapp skeleton ...");
   www = answers.init_dir + "/" + (answers.name.toLowerCase());
-  return nodegit.Clone("https://github.com/x42en/website-skeleton.git", www, {}).then(function(repo) {
-    var err, error, error1, error2, error3, error4, error5, host_available, host_content, host_enable;
+  return nodegit.Clone("https://github.com/x42en/webapp-skeleton", www, {}).then(function(repo) {
+    var err, error, error1;
     try {
       console.log("[+] Clean directory ...");
       exec("rm -rf " + www + "/.git");
@@ -193,68 +214,84 @@ inquirer.prompt(questions).then(function(answers) {
       console.log(err);
       return false;
     }
-    try {
-      console.log("[+] Please wait while 'npm install' ...");
-      exec("npm install", {
-        cwd: www
-      });
-    } catch (error2) {
-      err = error2;
-      console.log("[!] Error while running 'npm install':");
-      console.log(err);
-      return false;
-    }
-    if (answers.configure) {
-      if (_.includes(platform.os.toString().toLowerCase(), 'linux')) {
-        try {
-          exec("chgrp -R www-data " + www);
-        } catch (error3) {
-          err = error3;
-          console.log("[!] Error while correct webapp group owner:");
-          console.log(err);
-          return false;
-        }
-        if (answers.server === 'nginx') {
-          host_available = "/etc/nginx/sites-available/" + (answers.name.toLowerCase());
-          host_enable = "/etc/nginx/sites-enabled/" + (answers.name.toLowerCase());
-          host_content = "server {\n\tlisten 80;\n\n\tserver_name " + answers.url + " www." + answers.url + ";\n\n\troot " + www + "/build/client;\n\tindex index.php;\n\n\tcharset utf-8;\n\n\taccess_log /var/log/nginx/" + (answers.name.toLowerCase()) + ".error.log;\n\terror_log /var/log/nginx/" + (answers.name.toLowerCase()) + ".access.log;\n\n\tlocation = /favicon.ico { access_log off; log_not_found off; }\n\n\tlocation / {\n        try_files $uri $uri/ /index.php?$query_string;\n\t}\n\n\tsendfile off;\n\n\tlocation ~ \.php$ {\n         include snippets/fastcgi-php.conf;\n         fastcgi_pass unix:/var/run/php5-fpm.sock;\n         include fastcgi_params;\n \t}\n\n \tlocation ~ /\.ht {\n         deny all;\n \t}\n}\n";
-        } else {
-          host_available = "/etc/apache2/sites-available/" + (answers.name.toLowerCase());
-          host_enable = "/etc/apache2/sites-enable/" + (answers.name.toLowerCase());
-          host_content = "<VirtualHost *:80>\n\tDocumentRoot \"" + www + "\"\n\tServerName www." + url + "\n\tServerAlias " + url + "\n\n\t# If an existing asset or directory is requested go to it as it is\n\tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -f [OR]\n\tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -d\n\tRewriteRule ^ - [L]\n\n\t# If the requested resource doesn't exist, use index.php\n\tRewriteRule ^ /index.php\n\n\t<Directory \"" + www + "\"\n    Options Indexes FollowSymLinks MultiViews\n    AllowOverride all\n    Require local\n\t</Directory>\n</VirtualHost>\n";
-        }
-        try {
-          console.log("[+] Write " + answers.server + " config file for http://" + answers.url);
-          fs.writeFile(host_available, host_content, 'utf-8');
-        } catch (error4) {
-          err = error4;
-          console.log("[!] Error while adding vhost file:");
-          console.log(err);
-          return false;
-        }
-        try {
-          exec("ln -s " + host_available + " " + host_enable);
-          console.log("[+] Restart " + answers.server + " ...");
-          exec("service " + answers.server + " restart");
-          fs.appendFile('/etc/hosts', "127.0.0.1    " + answers.url + " www." + answers.url + "\n", 'utf-8');
-        } catch (error5) {
-          err = error5;
-          console.log("[!] Error while modifying hosts file:");
-          console.log(err);
-          return false;
-        }
-      } else if (_.includes(platform.os.toString().toLowerCase(), 'mac')) {
-        console.log("[!] Sorry we do not support mac platform yet for auto-configuration ...");
-        return false;
-      } else {
-        console.log("[!] Sorry we do not support windows platform yet for auto-configuration ...");
+    console.log("\n[+] Retrieve webapp template ...");
+    return nodegit.Clone("https://github.com/x42en/webapp-simple", www + "/app", {}).then(function(repo) {
+      var error2, error3, error4, error5, error6, host_available, host_content, host_enable;
+      try {
+        console.log("[+] Clean app directory ...");
+        exec("rm -rf " + www + "/app/.git");
+        exec("rm " + www + "/app/README.md");
+      } catch (error2) {
+        err = error2;
+        console.log("[!] Error while cleaning webapp directory:");
+        console.log(err);
         return false;
       }
-    }
-    console.log("\n[+] Go to -> " + www);
-    console.log("[+] Type 'gulp' to compile and launch server...");
-    console.log("[+] Access your webapp using: http://" + answers.url + "\n");
-    return console.log("[+] Happy C0d1ng !! ;) \n");
+      try {
+        console.log("[+] Please wait while 'npm install' ...");
+        exec("npm install", {
+          cwd: www
+        });
+      } catch (error3) {
+        err = error3;
+        console.log("[!] Error while running 'npm install':");
+        console.log(err);
+        return false;
+      }
+      if (answers.configure) {
+        if (_.includes(platform.os.toString().toLowerCase(), 'linux')) {
+          try {
+            exec("chgrp -R www-data " + www);
+          } catch (error4) {
+            err = error4;
+            console.log("[!] Error while correct webapp group owner:");
+            console.log(err);
+            return false;
+          }
+          if (answers.server === 'nginx') {
+            host_available = "/etc/nginx/sites-available/" + (answers.name.toLowerCase());
+            host_enable = "/etc/nginx/sites-enabled/" + (answers.name.toLowerCase());
+            host_content = "server {\n       \tlisten 80;\n\n       \tserver_name " + answers.url + " www." + answers.url + ";\n\n       \troot " + www + "/build/client;\n       \tindex index.php;\n\n       \tcharset utf-8;\n\n       \taccess_log /var/log/nginx/" + (answers.name.toLowerCase()) + ".error.log;\n       \terror_log /var/log/nginx/" + (answers.name.toLowerCase()) + ".access.log;\n\n       \tlocation = /favicon.ico { access_log off; log_not_found off; }\n\n       \tlocation / {\n               try_files $uri $uri/ /index.php?$query_string;\n       \t}\n\n       \tsendfile off;\n\n       \tlocation ~ \.php$ {\n                include snippets/fastcgi-php.conf;\n                fastcgi_pass unix:/var/run/php5-fpm.sock;\n                include fastcgi_params;\n        \t}\n\n        \tlocation ~ /\.ht {\n                deny all;\n        \t}\n}\n";
+          } else {
+            host_available = "/etc/apache2/sites-available/" + (answers.name.toLowerCase());
+            host_enable = "/etc/apache2/sites-enable/" + (answers.name.toLowerCase());
+            host_content = "<VirtualHost *:80>\n    \tDocumentRoot \"" + www + "\"\n    \tServerName www." + url + "\n    \tServerAlias " + url + "\n\n    \t# If an existing asset or directory is requested go to it as it is\n    \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -f [OR]\n    \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -d\n    \tRewriteRule ^ - [L]\n\n    \t# If the requested resource doesn't exist, use index.php\n    \tRewriteRule ^ /index.php\n\n    \t<Directory \"" + www + "\"\n        Options Indexes FollowSymLinks MultiViews\n        AllowOverride all\n        Require local\n    \t</Directory>\n</VirtualHost>\n";
+          }
+          try {
+            console.log("[+] Write " + answers.server + " config file for http://" + answers.url);
+            fs.writeFile(host_available, host_content, 'utf-8');
+          } catch (error5) {
+            err = error5;
+            console.log("[!] Error while adding vhost file:");
+            console.log(err);
+            return false;
+          }
+          try {
+            exec("ln -s " + host_available + " " + host_enable);
+            console.log("[+] Restart " + answers.server + " ...");
+            exec("service " + answers.server + " restart");
+            fs.appendFile('/etc/hosts', "127.0.0.1    " + answers.url + " www." + answers.url + "\n", 'utf-8');
+          } catch (error6) {
+            err = error6;
+            console.log("[!] Error while modifying hosts file:");
+            console.log(err);
+            return false;
+          }
+        } else if (_.includes(platform.os.toString().toLowerCase(), 'mac')) {
+          console.log("[!] Sorry we do not support mac platform yet for auto-configuration ...");
+          return false;
+        } else {
+          console.log("[!] Sorry we do not support windows platform yet for auto-configuration ...");
+          return false;
+        }
+      }
+      console.log("\n[+] Go to -> " + www);
+      console.log("[+] Type 'gulp' to compile and launch server...");
+      console.log("[+] Access your webapp using: http://" + answers.url + "\n");
+      return console.log("[+] Happy C0d1ng !! ;) \n");
+    })["catch"](function(err) {
+      return console.log("[!] Error while cloning git repo: " + err);
+    });
   })["catch"](function(err) {
     return console.log("[!] Error while cloning git repo: " + err);
   });
