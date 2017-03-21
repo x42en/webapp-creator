@@ -63,6 +63,95 @@ else if _.includes(platform.os.toString().toLowerCase(), 'mac')
 else
     DEFAULT_WWW = '/var/www'
 
+
+
+
+get_vhost = (answers, www) ->
+    if answers.server is 'nginx'
+        return """server {
+       \tlisten 80;
+
+       \tserver_name #{answers.url} www.#{answers.url};
+
+       \troot #{www}/build/client;
+       \tindex index.php;
+
+       \tcharset utf-8;
+
+       \taccess_log /var/log/nginx/#{answers.name.toLowerCase()}.error.log;
+       \terror_log /var/log/nginx/#{answers.name.toLowerCase()}.access.log;
+
+       \tlocation = /favicon.ico { access_log off; log_not_found off; }
+
+       \tlocation / {
+               try_files $uri $uri/ /index.php?$query_string;
+       \t}
+
+       \tsendfile off;
+
+       \tlocation ~ \\.php$ {
+                include snippets/fastcgi-php.conf;
+                fastcgi_pass unix:/var/run/php5-fpm.sock;
+                include fastcgi_params;
+        \t}
+
+        \tlocation ~ /\\.ht {
+                deny all;
+        \t}
+}\n"""
+    else
+        return """<VirtualHost *:80>
+    \tDocumentRoot "#{www}"
+    \tServerName www.#{answers.url}
+    \tServerAlias #{answers.url}
+
+    \t# If an existing asset or directory is requested go to it as it is
+    \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -f [OR]
+    \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -d
+    \tRewriteRule ^ - [L]
+
+    \t# If the requested resource doesn't exist, use index.php
+    \tRewriteRule ^ /index.php
+
+    \t<Directory "#{www}"
+        Options Indexes FollowSymLinks MultiViews
+        AllowOverride all
+        Require local
+    \t</Directory>
+</VirtualHost>\n"""
+
+get_node = (answers, www) ->
+    if answers.server is 'nginx'
+        return """upstream node_server {
+    \tserver 127.0.0.1:8000;
+}
+
+server {
+    \tcharset UTF-8;
+    \tlisten 80;
+    \tserver_name node.#{answers.url};
+
+    \tlocation / {
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-NginX-Proxy true;
+        proxy_pass http://node_server/;
+        proxy_ssl_session_reuse off;
+        proxy_redirect off;
+    \t}
+
+    \tlocation ~ /\\. {
+        deny all;
+    \t}
+}
+\n"""
+    else
+        return ""
+
 questions = [
     {
         type: 'list'
@@ -82,8 +171,6 @@ questions = [
         choices: ['Nginx', 'Apache']
         filter: (val) ->
             val.toLowerCase()
-        when: (answers) ->
-            return answers.configure
     },
     {
         type: 'input'
@@ -160,8 +247,8 @@ questions = [
 inquirer
     .prompt(questions)
     .then( (answers) ->
-        # console.log '\n[+] Webapp summary:'
-        # console.log JSON.stringify(answers, null, 2)
+        console.log '\n[+] Webapp summary:'
+        console.log JSON.stringify(answers, null, 2)
 
         config = {}
         config.APP_NAME            = answers.name
@@ -227,7 +314,7 @@ inquirer
 
                         try
                             # Exec npm install
-                            console.log "[+] Please wait while 'npm install' ..."
+                            console.log "[+] Please wait while 'npm install' (this could take a while) ..."
                             exec("npm install",{cwd: www})
                         catch err
                             console.log "[!] Error while running 'npm install':"
@@ -235,97 +322,25 @@ inquirer
                             return false
 
                         # Check server
+                        host_content = get_vhost answers, www
                         if answers.server is 'nginx'
                             host_available = "/etc/nginx/sites-available/#{answers.name.toLowerCase()}"
                             host_enable    = "/etc/nginx/sites-enabled/#{answers.name.toLowerCase()}"
+                            
                             if answers.node
                                 node_available = "/etc/nginx/sites-available/node.#{answers.name.toLowerCase()}"
                                 node_enable    = "/etc/nginx/sites-enabled/node.#{answers.name.toLowerCase()}"
-                                node_content   = """upstream node_server {
-    \tserver 127.0.0.1:8000;
-}
+                                node_content   = get_node answers, www
 
-server {
-    \tcharset UTF-8;
-    \tlisten 80;
-    \tserver_name node.mademocratie.dev;
-
-    \tlocation / {
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $http_host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-NginX-Proxy true;
-        proxy_pass http://node_server/;
-        proxy_ssl_session_reuse off;
-        proxy_redirect off;
-    \t}
-
-    \tlocation ~ /\\. {
-        deny all;
-    \t}
-}
-
-"""
-                            host_content   = """server {
-       \tlisten 80;
-
-       \tserver_name #{answers.url} www.#{answers.url};
-
-       \troot #{www}/build/client;
-       \tindex index.php;
-
-       \tcharset utf-8;
-
-       \taccess_log /var/log/nginx/#{answers.name.toLowerCase()}.error.log;
-       \terror_log /var/log/nginx/#{answers.name.toLowerCase()}.access.log;
-
-       \tlocation = /favicon.ico { access_log off; log_not_found off; }
-
-       \tlocation / {
-               try_files $uri $uri/ /index.php?$query_string;
-       \t}
-
-       \tsendfile off;
-
-       \tlocation ~ \\.php$ {
-                include snippets/fastcgi-php.conf;
-                fastcgi_pass unix:/var/run/php5-fpm.sock;
-                include fastcgi_params;
-        \t}
-
-        \tlocation ~ /\\.ht {
-                deny all;
-        \t}
-}\n"""
                         else
                             host_available = "/etc/apache2/sites-available/#{answers.name.toLowerCase()}"
                             host_enable    = "/etc/apache2/sites-enable/#{answers.name.toLowerCase()}"
+
                             if answers.node
                                 node_available = "/etc/apache2/sites-available/node.#{answers.name.toLowerCase()}"
                                 node_enable    = "/etc/apache2/sites-enable/node.#{answers.name.toLowerCase()}"
-                                node_content   = ''
-                            host_content   = """<VirtualHost *:80>
-    \tDocumentRoot "#{www}"
-    \tServerName www.#{url}
-    \tServerAlias #{url}
-
-    \t# If an existing asset or directory is requested go to it as it is
-    \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -f [OR]
-    \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -d
-    \tRewriteRule ^ - [L]
-
-    \t# If the requested resource doesn't exist, use index.php
-    \tRewriteRule ^ /index.php
-
-    \t<Directory "#{www}"
-        Options Indexes FollowSymLinks MultiViews
-        AllowOverride all
-        Require local
-    \t</Directory>
-</VirtualHost>\n"""
+                                node_content   = get_node answers, www
+                            
 
                         # If user ask for auto-configuration
                         if answers.configure
@@ -375,7 +390,7 @@ server {
                                 return false
                         # If user is not root
                         else if !isRoot()
-                            console.log "[+] If you were running this script as root I would have done this:"
+                            console.log "\n[+] If you were running this script as root I would have done this:"
                             console.log "[-] Add in host file (/etc/hosts) #{answers.url} www.#{answers.url} -> 127.0.0.1"
                             console.log "[-] Add in host file (/etc/hosts) node.#{answers.url} -> 127.0.0.1"
                             console.log "[-] Add vhost file for #{answers.url} in #{host_available}: "
@@ -387,10 +402,11 @@ server {
                                 console.log node_content
                                 console.log "[-] Activate it by soft-linking #{node_available} to #{node_enable}"
                             
-                            console.log "[+] Restart #{answers.server} ...\n"
+                            console.log "[-] Restart #{answers.server} ...\n"
 
                         # Final thoughts
-                        console.log "\n[+] Go to -> #{www}"
+                        console.log "\n[+] Good, everything seems fine !"
+                        console.log "[+] Go to -> #{www}"
                         console.log "[+] Type 'gulp' to compile and launch server..."
                         # Show url to user
                         console.log "[+] Access your webapp using: http://#{answers.url}\n"
@@ -398,11 +414,11 @@ server {
                         console.log "[+] Happy C0d1ng !! ;) \n"
                     )
                     .catch( (err) ->
-                        console.log "[!] Error while cloning git repo: #{err}"
+                        console.log "[!] Error while cloning template repo: #{err}"
                     )        
                 
             )
             .catch( (err) ->
-                console.log "[!] Error while cloning git repo: #{err}"
+                console.log "[!] Error while cloning skeleton repo: #{err}"
             )
     )

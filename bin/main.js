@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 ;
-var DEFAULT_WWW, VERSION, _, apache, apacheconf, exec, fs, getApacheDirectory, inquirer, isRoot, nodegit, path, platform, questions, sys, wamp;
+var DEFAULT_WWW, VERSION, _, apache, apacheconf, exec, fs, getApacheDirectory, get_node, get_vhost, inquirer, isRoot, nodegit, path, platform, questions, sys, wamp;
 
 fs = require("fs");
 
@@ -72,6 +72,22 @@ if (_.includes(platform.os.toString().toLowerCase(), 'win')) {
   DEFAULT_WWW = '/var/www';
 }
 
+get_vhost = function(answers, www) {
+  if (answers.server === 'nginx') {
+    return "server {\n\tlisten 80;\n\n\tserver_name " + answers.url + " www." + answers.url + ";\n\n\troot " + www + "/build/client;\n\tindex index.php;\n\n\tcharset utf-8;\n\n\taccess_log /var/log/nginx/" + (answers.name.toLowerCase()) + ".error.log;\n\terror_log /var/log/nginx/" + (answers.name.toLowerCase()) + ".access.log;\n\n\tlocation = /favicon.ico { access_log off; log_not_found off; }\n\n\tlocation / {\n        try_files $uri $uri/ /index.php?$query_string;\n\t}\n\n\tsendfile off;\n\n\tlocation ~ \\.php$ {\n         include snippets/fastcgi-php.conf;\n         fastcgi_pass unix:/var/run/php5-fpm.sock;\n         include fastcgi_params;\n \t}\n\n \tlocation ~ /\\.ht {\n         deny all;\n \t}\n}\n";
+  } else {
+    return "<VirtualHost *:80>\n\tDocumentRoot \"" + www + "\"\n\tServerName www." + answers.url + "\n\tServerAlias " + answers.url + "\n\n\t# If an existing asset or directory is requested go to it as it is\n\tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -f [OR]\n\tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -d\n\tRewriteRule ^ - [L]\n\n\t# If the requested resource doesn't exist, use index.php\n\tRewriteRule ^ /index.php\n\n\t<Directory \"" + www + "\"\n    Options Indexes FollowSymLinks MultiViews\n    AllowOverride all\n    Require local\n\t</Directory>\n</VirtualHost>\n";
+  }
+};
+
+get_node = function(answers, www) {
+  if (answers.server === 'nginx') {
+    return "upstream node_server {\n\tserver 127.0.0.1:8000;\n}\n\nserver {\n\tcharset UTF-8;\n\tlisten 80;\n\tserver_name node." + answers.url + ";\n\n\tlocation / {\n    proxy_http_version 1.1;\n    proxy_set_header Upgrade $http_upgrade;\n    proxy_set_header Connection \"upgrade\";\n    proxy_set_header Host $http_host;\n    proxy_set_header X-Real-IP $remote_addr;\n    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n    proxy_set_header X-NginX-Proxy true;\n    proxy_pass http://node_server/;\n    proxy_ssl_session_reuse off;\n    proxy_redirect off;\n\t}\n\n\tlocation ~ /\\. {\n    deny all;\n\t}\n}\n\n";
+  } else {
+    return "";
+  }
+};
+
 questions = [
   {
     type: 'list',
@@ -92,9 +108,6 @@ questions = [
     choices: ['Nginx', 'Apache'],
     filter: function(val) {
       return val.toLowerCase();
-    },
-    when: function(answers) {
-      return answers.configure;
     }
   }, {
     type: 'input',
@@ -176,6 +189,8 @@ questions = [
 
 inquirer.prompt(questions).then(function(answers) {
   var config, www;
+  console.log('\n[+] Webapp summary:');
+  console.log(JSON.stringify(answers, null, 2));
   config = {};
   config.APP_NAME = answers.name;
   config.APP_TITLE = answers.title;
@@ -234,7 +249,7 @@ inquirer.prompt(questions).then(function(answers) {
         return false;
       }
       try {
-        console.log("[+] Please wait while 'npm install' ...");
+        console.log("[+] Please wait while 'npm install' (this could take a while) ...");
         exec("npm install", {
           cwd: www
         });
@@ -244,24 +259,23 @@ inquirer.prompt(questions).then(function(answers) {
         console.log(err);
         return false;
       }
+      host_content = get_vhost(answers, www);
       if (answers.server === 'nginx') {
         host_available = "/etc/nginx/sites-available/" + (answers.name.toLowerCase());
         host_enable = "/etc/nginx/sites-enabled/" + (answers.name.toLowerCase());
         if (answers.node) {
           node_available = "/etc/nginx/sites-available/node." + (answers.name.toLowerCase());
           node_enable = "/etc/nginx/sites-enabled/node." + (answers.name.toLowerCase());
-          node_content = "upstream node_server {\n\tserver 127.0.0.1:8000;\n}\n\nserver {\n\tcharset UTF-8;\n\tlisten 80;\n\tserver_name node.mademocratie.dev;\n\n\tlocation / {\n    proxy_http_version 1.1;\n    proxy_set_header Upgrade $http_upgrade;\n    proxy_set_header Connection \"upgrade\";\n    proxy_set_header Host $http_host;\n    proxy_set_header X-Real-IP $remote_addr;\n    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n    proxy_set_header X-NginX-Proxy true;\n    proxy_pass http://node_server/;\n    proxy_ssl_session_reuse off;\n    proxy_redirect off;\n\t}\n\n\tlocation ~ /\\. {\n    deny all;\n\t}\n}\n";
+          node_content = get_node(answers, www);
         }
-        host_content = "server {\n\tlisten 80;\n\n\tserver_name " + answers.url + " www." + answers.url + ";\n\n\troot " + www + "/build/client;\n\tindex index.php;\n\n\tcharset utf-8;\n\n\taccess_log /var/log/nginx/" + (answers.name.toLowerCase()) + ".error.log;\n\terror_log /var/log/nginx/" + (answers.name.toLowerCase()) + ".access.log;\n\n\tlocation = /favicon.ico { access_log off; log_not_found off; }\n\n\tlocation / {\n        try_files $uri $uri/ /index.php?$query_string;\n\t}\n\n\tsendfile off;\n\n\tlocation ~ \\.php$ {\n         include snippets/fastcgi-php.conf;\n         fastcgi_pass unix:/var/run/php5-fpm.sock;\n         include fastcgi_params;\n \t}\n\n \tlocation ~ /\\.ht {\n         deny all;\n \t}\n}\n";
       } else {
         host_available = "/etc/apache2/sites-available/" + (answers.name.toLowerCase());
         host_enable = "/etc/apache2/sites-enable/" + (answers.name.toLowerCase());
         if (answers.node) {
           node_available = "/etc/apache2/sites-available/node." + (answers.name.toLowerCase());
           node_enable = "/etc/apache2/sites-enable/node." + (answers.name.toLowerCase());
-          node_content = '';
+          node_content = get_node(answers, www);
         }
-        host_content = "<VirtualHost *:80>\n\tDocumentRoot \"" + www + "\"\n\tServerName www." + url + "\n\tServerAlias " + url + "\n\n\t# If an existing asset or directory is requested go to it as it is\n\tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -f [OR]\n\tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -d\n\tRewriteRule ^ - [L]\n\n\t# If the requested resource doesn't exist, use index.php\n\tRewriteRule ^ /index.php\n\n\t<Directory \"" + www + "\"\n    Options Indexes FollowSymLinks MultiViews\n    AllowOverride all\n    Require local\n\t</Directory>\n</VirtualHost>\n";
       }
       if (answers.configure) {
         if (_.includes(platform.os.toString().toLowerCase(), 'linux')) {
@@ -304,7 +318,7 @@ inquirer.prompt(questions).then(function(answers) {
           return false;
         }
       } else if (!isRoot()) {
-        console.log("[+] If you were running this script as root I would have done this:");
+        console.log("\n[+] If you were running this script as root I would have done this:");
         console.log("[-] Add in host file (/etc/hosts) " + answers.url + " www." + answers.url + " -> 127.0.0.1");
         console.log("[-] Add in host file (/etc/hosts) node." + answers.url + " -> 127.0.0.1");
         console.log("[-] Add vhost file for " + answers.url + " in " + host_available + ": ");
@@ -315,16 +329,17 @@ inquirer.prompt(questions).then(function(answers) {
           console.log(node_content);
           console.log("[-] Activate it by soft-linking " + node_available + " to " + node_enable);
         }
-        console.log("[+] Restart " + answers.server + " ...\n");
+        console.log("[-] Restart " + answers.server + " ...\n");
       }
-      console.log("\n[+] Go to -> " + www);
+      console.log("\n[+] Good, everything seems fine !");
+      console.log("[+] Go to -> " + www);
       console.log("[+] Type 'gulp' to compile and launch server...");
       console.log("[+] Access your webapp using: http://" + answers.url + "\n");
       return console.log("[+] Happy C0d1ng !! ;) \n");
     })["catch"](function(err) {
-      return console.log("[!] Error while cloning git repo: " + err);
+      return console.log("[!] Error while cloning template repo: " + err);
     });
   })["catch"](function(err) {
-    return console.log("[!] Error while cloning git repo: " + err);
+    return console.log("[!] Error while cloning skeleton repo: " + err);
   });
 });
