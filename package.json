@@ -1,6 +1,6 @@
 {
   "name": "nawac",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "N-other Angular WebApp Creator",
   "main": "main.js",
   "scripts": {
