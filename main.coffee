@@ -15,7 +15,7 @@ sys        = require "util"
 exec       = require "sync-exec"
 _          = require "lodash"
 
-VERSION  = '0.1.2'
+VERSION  = '0.1.3'
 
 console.log "\n..:: N-other Angular WebApp Creator - [NAWAC] ::..\n"
 
@@ -115,6 +115,15 @@ questions = [
             return (answers.site is 'custom')
     },
     {
+        type: 'list'
+        name: 'node'
+        message: 'Do you need server side process (node) ?'
+        choices: ['Yes', 'No']
+        default: 'Yes'
+        filter: (val) ->
+            val = if val is 'Yes' then true else false
+    },
+    {
         type: 'input'
         name: 'name'
         message: 'What is your project name ?'
@@ -151,8 +160,8 @@ questions = [
 inquirer
     .prompt(questions)
     .then( (answers) ->
-        console.log '\n[+] Webapp summary:'
-        console.log JSON.stringify(answers, null, 2)
+        # console.log '\n[+] Webapp summary:'
+        # console.log JSON.stringify(answers, null, 2)
 
         config = {}
         config.APP_NAME            = answers.name
@@ -225,6 +234,99 @@ inquirer
                             console.log err
                             return false
 
+                        # Check server
+                        if answers.server is 'nginx'
+                            host_available = "/etc/nginx/sites-available/#{answers.name.toLowerCase()}"
+                            host_enable    = "/etc/nginx/sites-enabled/#{answers.name.toLowerCase()}"
+                            if answers.node
+                                node_available = "/etc/nginx/sites-available/node.#{answers.name.toLowerCase()}"
+                                node_enable    = "/etc/nginx/sites-enabled/node.#{answers.name.toLowerCase()}"
+                                node_content   = """upstream node_server {
+    \tserver 127.0.0.1:8000;
+}
+
+server {
+    \tcharset UTF-8;
+    \tlisten 80;
+    \tserver_name node.mademocratie.dev;
+
+    \tlocation / {
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-NginX-Proxy true;
+        proxy_pass http://node_server/;
+        proxy_ssl_session_reuse off;
+        proxy_redirect off;
+    \t}
+
+    \tlocation ~ /\\. {
+        deny all;
+    \t}
+}
+
+"""
+                            host_content   = """server {
+       \tlisten 80;
+
+       \tserver_name #{answers.url} www.#{answers.url};
+
+       \troot #{www}/build/client;
+       \tindex index.php;
+
+       \tcharset utf-8;
+
+       \taccess_log /var/log/nginx/#{answers.name.toLowerCase()}.error.log;
+       \terror_log /var/log/nginx/#{answers.name.toLowerCase()}.access.log;
+
+       \tlocation = /favicon.ico { access_log off; log_not_found off; }
+
+       \tlocation / {
+               try_files $uri $uri/ /index.php?$query_string;
+       \t}
+
+       \tsendfile off;
+
+       \tlocation ~ \\.php$ {
+                include snippets/fastcgi-php.conf;
+                fastcgi_pass unix:/var/run/php5-fpm.sock;
+                include fastcgi_params;
+        \t}
+
+        \tlocation ~ /\\.ht {
+                deny all;
+        \t}
+}\n"""
+                        else
+                            host_available = "/etc/apache2/sites-available/#{answers.name.toLowerCase()}"
+                            host_enable    = "/etc/apache2/sites-enable/#{answers.name.toLowerCase()}"
+                            if answers.node
+                                node_available = "/etc/apache2/sites-available/node.#{answers.name.toLowerCase()}"
+                                node_enable    = "/etc/apache2/sites-enable/node.#{answers.name.toLowerCase()}"
+                                node_content   = ''
+                            host_content   = """<VirtualHost *:80>
+    \tDocumentRoot "#{www}"
+    \tServerName www.#{url}
+    \tServerAlias #{url}
+
+    \t# If an existing asset or directory is requested go to it as it is
+    \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -f [OR]
+    \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -d
+    \tRewriteRule ^ - [L]
+
+    \t# If the requested resource doesn't exist, use index.php
+    \tRewriteRule ^ /index.php
+
+    \t<Directory "#{www}"
+        Options Indexes FollowSymLinks MultiViews
+        AllowOverride all
+        Require local
+    \t</Directory>
+</VirtualHost>\n"""
+
                         # If user ask for auto-configuration
                         if answers.configure
                             # CHeck plateform
@@ -236,64 +338,6 @@ inquirer
                                     console.log "[!] Error while correct webapp group owner:"
                                     console.log err
                                     return false
-                                
-                                # Check server
-                                if answers.server is 'nginx'
-                                    host_available = "/etc/nginx/sites-available/#{answers.name.toLowerCase()}"
-                                    host_enable    = "/etc/nginx/sites-enabled/#{answers.name.toLowerCase()}"
-                                    host_content   = """server {
-               \tlisten 80;
-
-               \tserver_name #{answers.url} www.#{answers.url};
-
-               \troot #{www}/build/client;
-               \tindex index.php;
-
-               \tcharset utf-8;
-
-               \taccess_log /var/log/nginx/#{answers.name.toLowerCase()}.error.log;
-               \terror_log /var/log/nginx/#{answers.name.toLowerCase()}.access.log;
-
-               \tlocation = /favicon.ico { access_log off; log_not_found off; }
-
-               \tlocation / {
-                       try_files $uri $uri/ /index.php?$query_string;
-               \t}
-
-               \tsendfile off;
-
-               \tlocation ~ \.php$ {
-                        include snippets/fastcgi-php.conf;
-                        fastcgi_pass unix:/var/run/php5-fpm.sock;
-                        include fastcgi_params;
-                \t}
-
-                \tlocation ~ /\.ht {
-                        deny all;
-                \t}
-        }\n"""
-                                else
-                                    host_available = "/etc/apache2/sites-available/#{answers.name.toLowerCase()}"
-                                    host_enable    = "/etc/apache2/sites-enable/#{answers.name.toLowerCase()}"
-                                    host_content   = """<VirtualHost *:80>
-            \tDocumentRoot "#{www}"
-            \tServerName www.#{url}
-            \tServerAlias #{url}
-
-            \t# If an existing asset or directory is requested go to it as it is
-            \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -f [OR]
-            \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -d
-            \tRewriteRule ^ - [L]
-
-            \t# If the requested resource doesn't exist, use index.php
-            \tRewriteRule ^ /index.php
-
-            \t<Directory "#{www}"
-                Options Indexes FollowSymLinks MultiViews
-                AllowOverride all
-                Require local
-            \t</Directory>
-        </VirtualHost>\n"""
 
                                 try
                                     # Write server vhost file
@@ -312,6 +356,10 @@ inquirer
 
                                     # Add host entry for url
                                     fs.appendFile '/etc/hosts', "127.0.0.1    #{answers.url} www.#{answers.url}\n", 'utf-8'
+                                    # If server is required
+                                    if answers.node
+                                        # Add node entry
+                                        fs.appendFile '/etc/hosts', "127.0.0.1    node.#{answers.url}\n", 'utf-8'
                                 catch err
                                     console.log "[!] Error while modifying hosts file:"
                                     console.log err
@@ -325,6 +373,21 @@ inquirer
                                 # Catch windows errors
                                 console.log "[!] Sorry we do not support windows platform yet for auto-configuration ..."
                                 return false
+                        # If user is not root
+                        else if !isRoot()
+                            console.log "[+] If you were running this script as root I would have done this:"
+                            console.log "[-] Add in host file (/etc/hosts) #{answers.url} www.#{answers.url} -> 127.0.0.1"
+                            console.log "[-] Add in host file (/etc/hosts) node.#{answers.url} -> 127.0.0.1"
+                            console.log "[-] Add vhost file for #{answers.url} in #{host_available}: "
+                            console.log host_content
+                            console.log "[-] Activate it by soft-linking #{host_available} to #{host_enable}"
+                            
+                            if answers.node
+                                console.log "[-] Add vhost file for node.#{answers.url} in #{node_available}: "
+                                console.log node_content
+                                console.log "[-] Activate it by soft-linking #{node_available} to #{node_enable}"
+                            
+                            console.log "[+] Restart #{answers.server} ...\n"
 
                         # Final thoughts
                         console.log "\n[+] Go to -> #{www}"

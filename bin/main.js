@@ -22,7 +22,7 @@ exec = require("sync-exec");
 
 _ = require("lodash");
 
-VERSION = '0.1.2';
+VERSION = '0.1.3';
 
 console.log("\n..:: N-other Angular WebApp Creator - [NAWAC] ::..\n");
 
@@ -129,6 +129,15 @@ questions = [
       return answers.site === 'custom';
     }
   }, {
+    type: 'list',
+    name: 'node',
+    message: 'Do you need server side process (node) ?',
+    choices: ['Yes', 'No'],
+    "default": 'Yes',
+    filter: function(val) {
+      return val = val === 'Yes' ? true : false;
+    }
+  }, {
     type: 'input',
     name: 'name',
     message: 'What is your project name ?',
@@ -167,8 +176,6 @@ questions = [
 
 inquirer.prompt(questions).then(function(answers) {
   var config, www;
-  console.log('\n[+] Webapp summary:');
-  console.log(JSON.stringify(answers, null, 2));
   config = {};
   config.APP_NAME = answers.name;
   config.APP_TITLE = answers.title;
@@ -215,7 +222,7 @@ inquirer.prompt(questions).then(function(answers) {
     }
     console.log("\n[+] Retrieve webapp template ...");
     return nodegit.Clone("https://github.com/x42en/webapp-simple", www + "/app", {}).then(function(repo) {
-      var error2, error3, error4, error5, error6, host_available, host_content, host_enable;
+      var error2, error3, error4, error5, error6, host_available, host_content, host_enable, node_available, node_content, node_enable;
       try {
         console.log("[+] Clean app directory ...");
         exec("rm -rf " + www + "/app/.git");
@@ -237,6 +244,25 @@ inquirer.prompt(questions).then(function(answers) {
         console.log(err);
         return false;
       }
+      if (answers.server === 'nginx') {
+        host_available = "/etc/nginx/sites-available/" + (answers.name.toLowerCase());
+        host_enable = "/etc/nginx/sites-enabled/" + (answers.name.toLowerCase());
+        if (answers.node) {
+          node_available = "/etc/nginx/sites-available/node." + (answers.name.toLowerCase());
+          node_enable = "/etc/nginx/sites-enabled/node." + (answers.name.toLowerCase());
+          node_content = "upstream node_server {\n\tserver 127.0.0.1:8000;\n}\n\nserver {\n\tcharset UTF-8;\n\tlisten 80;\n\tserver_name node.mademocratie.dev;\n\n\tlocation / {\n    proxy_http_version 1.1;\n    proxy_set_header Upgrade $http_upgrade;\n    proxy_set_header Connection \"upgrade\";\n    proxy_set_header Host $http_host;\n    proxy_set_header X-Real-IP $remote_addr;\n    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n    proxy_set_header X-NginX-Proxy true;\n    proxy_pass http://node_server/;\n    proxy_ssl_session_reuse off;\n    proxy_redirect off;\n\t}\n\n\tlocation ~ /\\. {\n    deny all;\n\t}\n}\n";
+        }
+        host_content = "server {\n\tlisten 80;\n\n\tserver_name " + answers.url + " www." + answers.url + ";\n\n\troot " + www + "/build/client;\n\tindex index.php;\n\n\tcharset utf-8;\n\n\taccess_log /var/log/nginx/" + (answers.name.toLowerCase()) + ".error.log;\n\terror_log /var/log/nginx/" + (answers.name.toLowerCase()) + ".access.log;\n\n\tlocation = /favicon.ico { access_log off; log_not_found off; }\n\n\tlocation / {\n        try_files $uri $uri/ /index.php?$query_string;\n\t}\n\n\tsendfile off;\n\n\tlocation ~ \\.php$ {\n         include snippets/fastcgi-php.conf;\n         fastcgi_pass unix:/var/run/php5-fpm.sock;\n         include fastcgi_params;\n \t}\n\n \tlocation ~ /\\.ht {\n         deny all;\n \t}\n}\n";
+      } else {
+        host_available = "/etc/apache2/sites-available/" + (answers.name.toLowerCase());
+        host_enable = "/etc/apache2/sites-enable/" + (answers.name.toLowerCase());
+        if (answers.node) {
+          node_available = "/etc/apache2/sites-available/node." + (answers.name.toLowerCase());
+          node_enable = "/etc/apache2/sites-enable/node." + (answers.name.toLowerCase());
+          node_content = '';
+        }
+        host_content = "<VirtualHost *:80>\n\tDocumentRoot \"" + www + "\"\n\tServerName www." + url + "\n\tServerAlias " + url + "\n\n\t# If an existing asset or directory is requested go to it as it is\n\tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -f [OR]\n\tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -d\n\tRewriteRule ^ - [L]\n\n\t# If the requested resource doesn't exist, use index.php\n\tRewriteRule ^ /index.php\n\n\t<Directory \"" + www + "\"\n    Options Indexes FollowSymLinks MultiViews\n    AllowOverride all\n    Require local\n\t</Directory>\n</VirtualHost>\n";
+      }
       if (answers.configure) {
         if (_.includes(platform.os.toString().toLowerCase(), 'linux')) {
           try {
@@ -246,15 +272,6 @@ inquirer.prompt(questions).then(function(answers) {
             console.log("[!] Error while correct webapp group owner:");
             console.log(err);
             return false;
-          }
-          if (answers.server === 'nginx') {
-            host_available = "/etc/nginx/sites-available/" + (answers.name.toLowerCase());
-            host_enable = "/etc/nginx/sites-enabled/" + (answers.name.toLowerCase());
-            host_content = "server {\n       \tlisten 80;\n\n       \tserver_name " + answers.url + " www." + answers.url + ";\n\n       \troot " + www + "/build/client;\n       \tindex index.php;\n\n       \tcharset utf-8;\n\n       \taccess_log /var/log/nginx/" + (answers.name.toLowerCase()) + ".error.log;\n       \terror_log /var/log/nginx/" + (answers.name.toLowerCase()) + ".access.log;\n\n       \tlocation = /favicon.ico { access_log off; log_not_found off; }\n\n       \tlocation / {\n               try_files $uri $uri/ /index.php?$query_string;\n       \t}\n\n       \tsendfile off;\n\n       \tlocation ~ \.php$ {\n                include snippets/fastcgi-php.conf;\n                fastcgi_pass unix:/var/run/php5-fpm.sock;\n                include fastcgi_params;\n        \t}\n\n        \tlocation ~ /\.ht {\n                deny all;\n        \t}\n}\n";
-          } else {
-            host_available = "/etc/apache2/sites-available/" + (answers.name.toLowerCase());
-            host_enable = "/etc/apache2/sites-enable/" + (answers.name.toLowerCase());
-            host_content = "<VirtualHost *:80>\n    \tDocumentRoot \"" + www + "\"\n    \tServerName www." + url + "\n    \tServerAlias " + url + "\n\n    \t# If an existing asset or directory is requested go to it as it is\n    \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -f [OR]\n    \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -d\n    \tRewriteRule ^ - [L]\n\n    \t# If the requested resource doesn't exist, use index.php\n    \tRewriteRule ^ /index.php\n\n    \t<Directory \"" + www + "\"\n        Options Indexes FollowSymLinks MultiViews\n        AllowOverride all\n        Require local\n    \t</Directory>\n</VirtualHost>\n";
           }
           try {
             console.log("[+] Write " + answers.server + " config file for http://" + answers.url);
@@ -270,6 +287,9 @@ inquirer.prompt(questions).then(function(answers) {
             console.log("[+] Restart " + answers.server + " ...");
             exec("service " + answers.server + " restart");
             fs.appendFile('/etc/hosts', "127.0.0.1    " + answers.url + " www." + answers.url + "\n", 'utf-8');
+            if (answers.node) {
+              fs.appendFile('/etc/hosts', "127.0.0.1    node." + answers.url + "\n", 'utf-8');
+            }
           } catch (error6) {
             err = error6;
             console.log("[!] Error while modifying hosts file:");
@@ -283,6 +303,19 @@ inquirer.prompt(questions).then(function(answers) {
           console.log("[!] Sorry we do not support windows platform yet for auto-configuration ...");
           return false;
         }
+      } else if (!isRoot()) {
+        console.log("[+] If you were running this script as root I would have done this:");
+        console.log("[-] Add in host file (/etc/hosts) " + answers.url + " www." + answers.url + " -> 127.0.0.1");
+        console.log("[-] Add in host file (/etc/hosts) node." + answers.url + " -> 127.0.0.1");
+        console.log("[-] Add vhost file for " + answers.url + " in " + host_available + ": ");
+        console.log(host_content);
+        console.log("[-] Activate it by soft-linking " + host_available + " to " + host_enable);
+        if (answers.node) {
+          console.log("[-] Add vhost file for node." + answers.url + " in " + node_available + ": ");
+          console.log(node_content);
+          console.log("[-] Activate it by soft-linking " + node_available + " to " + node_enable);
+        }
+        console.log("[+] Restart " + answers.server + " ...\n");
       }
       console.log("\n[+] Go to -> " + www);
       console.log("[+] Type 'gulp' to compile and launch server...");
