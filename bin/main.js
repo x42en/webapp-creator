@@ -98,7 +98,7 @@ inquirer.prompt(q).then(function(answers) {
   config = {};
   config.APP_NAME = answers.name;
   config.APP_TITLE = answers.title;
-  config.APP_DESCRIPTION = answers.desc;
+  config.APP_DESCRIPTION = answers.description;
   config.APP_KEYWORDS = ["app", "nawac", "easy", "sass", "less", "coffee", "jade"];
   config.APP_URL = answers.url;
   config.PORT = 8080;
