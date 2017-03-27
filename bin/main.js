@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 ;
-var DEFAULT_WWW, VERSION, _, apache, apacheconf, exec, fs, getApacheDirectory, get_node, get_vhost, inquirer, isRoot, nodegit, path, platform, questions, sys, wamp;
+var DEFAULT_WWW, PROMPT, SERVER_FILES, VERSION, _, apache, apacheconf, clone, colors, exec, fs, getApacheDirectory, inquirer, isRoot, path, platform, q, sys, wamp,
+  indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
 fs = require("fs");
 
 path = require("path");
+
+colors = require("colors");
 
 apacheconf = require("apacheconf");
 
@@ -12,7 +15,7 @@ isRoot = require("is-root");
 
 inquirer = require("inquirer");
 
-nodegit = require("nodegit");
+clone = require("git-clone");
 
 platform = require("platform");
 
@@ -22,13 +25,20 @@ exec = require("sync-exec");
 
 _ = require("lodash");
 
-VERSION = '0.1.3';
+VERSION = '0.1.4';
 
-console.log("\n..:: N-other Angular WebApp Creator - [NAWAC] ::..\n");
+console.log("\n..:: N-other Angular WebApp Creator - [NAWAC] ::..\n".yellow.bold);
 
-console.log("[+] Welcome on NAWAC v." + VERSION);
+console.log(("[+] Welcome on NAWAC v." + VERSION).white.bold);
 
-console.log("[+] You are using " + platform.os + "\n");
+console.log(("[+] You are using " + platform.os + "\n").white.bold);
+
+if (isRoot()) {
+  console.log("[+] You are root, Good!\n".green);
+} else {
+  console.log("[-] Your are NOT root...".red.bold);
+  console.log("[-] I won't be able to modify server and hosts files.\n".red.bold);
+}
 
 getApacheDirectory = function(rootDir) {
   var file, filePath, files, i, len, stat;
@@ -46,159 +56,55 @@ getApacheDirectory = function(rootDir) {
 
 if (_.includes(platform.os.toString().toLowerCase(), 'win')) {
   wamp = fs.existsSync('C:\\\\wamp\\') ? "wamp" : "wamp64";
-  apache = getApacheDirectory("C:\\\\" + wamp + "\\bin\\apache\\");
-  if (apache) {
-    console.log("[+] You are using " + apache);
-  } else {
-    console.log("[!] Unable to detect your apache version sorry...");
-  }
-  apacheconf("C:\\\\" + wamp + "\\bin\\apache\\" + apache + "\\conf\\httpd.conf", function(err, config, parser) {
-    if (err) {
-      throw err;
+  if (fs.existsSync("C:\\\\" + wamp + "\\bin\\apache\\")) {
+    apache = getApacheDirectory("C:\\\\" + wamp + "\\bin\\apache\\");
+    if (apache) {
+      console.log(("[+] You are using " + apache).green);
+    } else {
+      console.log("[!] Unable to detect your web server version sorry...".yellow);
     }
-    return false;
-  });
+    apacheconf("C:\\\\" + wamp + "\\bin\\apache\\" + apache + "\\conf\\httpd.conf", function(err, config, parser) {
+      if (err) {
+        throw err;
+      }
+      return false;
+    });
+  }
   DEFAULT_WWW = 'C:\\\\wamp\\www';
 } else if (_.includes(platform.os.toString().toLowerCase(), 'mac')) {
-  apacheconf('/etc/apache2/httpd.conf', function(err, config, parser) {
-    if (err) {
-      throw err;
-    }
-    console.log(config);
-    return false;
-  });
-  DEFAULT_WWW = '/Applications/MAMP/htdocs';
+  if (fs.existsSync('/etc/apache2/httpd.conf')) {
+    apacheconf('/etc/apache2/httpd.conf', function(err, config, parser) {
+      if (err) {
+        throw err;
+      }
+      return false;
+    });
+    DEFAULT_WWW = '/Applications/MAMP/htdocs';
+  }
 } else {
   DEFAULT_WWW = '/var/www';
 }
 
-get_vhost = function(answers, www) {
-  if (answers.server === 'nginx') {
-    return "server {\n\tlisten 80;\n\n\tserver_name " + answers.url + " www." + answers.url + ";\n\n\troot " + www + "/build/client;\n\tindex index.php;\n\n\tcharset utf-8;\n\n\taccess_log /var/log/nginx/" + (answers.name.toLowerCase()) + ".error.log;\n\terror_log /var/log/nginx/" + (answers.name.toLowerCase()) + ".access.log;\n\n\tlocation = /favicon.ico { access_log off; log_not_found off; }\n\n\tlocation / {\n        try_files $uri $uri/ /index.php?$query_string;\n\t}\n\n\tsendfile off;\n\n\tlocation ~ \\.php$ {\n         include snippets/fastcgi-php.conf;\n         fastcgi_pass unix:/var/run/php5-fpm.sock;\n         include fastcgi_params;\n \t}\n\n \tlocation ~ /\\.ht {\n         deny all;\n \t}\n}\n";
-  } else {
-    return "<VirtualHost *:80>\n\tDocumentRoot \"" + www + "\"\n\tServerName www." + answers.url + "\n\tServerAlias " + answers.url + "\n\n\t# If an existing asset or directory is requested go to it as it is\n\tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -f [OR]\n\tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -d\n\tRewriteRule ^ - [L]\n\n\t# If the requested resource doesn't exist, use index.php\n\tRewriteRule ^ /index.php\n\n\t<Directory \"" + www + "\"\n    Options Indexes FollowSymLinks MultiViews\n    AllowOverride all\n    Require local\n\t</Directory>\n</VirtualHost>\n";
-  }
-};
+PROMPT = require('./questions');
 
-get_node = function(answers, www) {
-  if (answers.server === 'nginx') {
-    return "upstream node_server {\n\tserver 127.0.0.1:8000;\n}\n\nserver {\n\tcharset UTF-8;\n\tlisten 80;\n\tserver_name node." + answers.url + ";\n\n\tlocation / {\n    proxy_http_version 1.1;\n    proxy_set_header Upgrade $http_upgrade;\n    proxy_set_header Connection \"upgrade\";\n    proxy_set_header Host $http_host;\n    proxy_set_header X-Real-IP $remote_addr;\n    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n    proxy_set_header X-NginX-Proxy true;\n    proxy_pass http://node_server/;\n    proxy_ssl_session_reuse off;\n    proxy_redirect off;\n\t}\n\n\tlocation ~ /\\. {\n    deny all;\n\t}\n}\n\n";
-  } else {
-    return "";
-  }
-};
+SERVER_FILES = require('./server_files');
 
-questions = [
-  {
-    type: 'list',
-    name: 'configure',
-    message: 'Do you want us to auto-configure your webserver ?',
-    choices: ['Yes', 'No'],
-    "default": 'Yes',
-    filter: function(val) {
-      return val = val === 'Yes' ? true : false;
-    },
-    when: function(answers) {
-      return isRoot();
-    }
-  }, {
-    type: 'list',
-    name: 'server',
-    message: 'What is your web server ?',
-    choices: ['Nginx', 'Apache'],
-    filter: function(val) {
-      return val.toLowerCase();
-    }
-  }, {
-    type: 'input',
-    name: 'init_dir',
-    message: 'Where are located your websites ?',
-    "default": DEFAULT_WWW,
-    validate: function(name) {
-      if (name.length < 3) {
-        return 'Your app name must be longer than 3 characters.';
-      }
-      return true;
-    }
-  }, {
-    type: 'list',
-    name: 'site',
-    message: 'What is your project template ?',
-    choices: ['Simple', 'Custom'],
-    filter: function(val) {
-      return val.toLowerCase();
-    }
-  }, {
-    type: 'input',
-    name: 'git',
-    message: 'Enter the https github repository to use :',
-    validate: function(name) {
-      if (name.substring(0, 8) !== 'https://') {
-        return 'This does not appear to be a valid repository.';
-      }
-      return true;
-    },
-    when: function(answers) {
-      return answers.site === 'custom';
-    }
-  }, {
-    type: 'list',
-    name: 'node',
-    message: 'Do you need server side process (node) ?',
-    choices: ['Yes', 'No'],
-    "default": 'Yes',
-    filter: function(val) {
-      return val = val === 'Yes' ? true : false;
-    }
-  }, {
-    type: 'input',
-    name: 'name',
-    message: 'What is your project name ?',
-    validate: function(name) {
-      if (name.length < 3) {
-        return 'Your app name must be longer than 3 characters.';
-      }
-      return true;
-    }
-  }, {
-    type: 'input',
-    name: 'title',
-    message: 'Set your webapp title :',
-    validate: function(title) {
-      if (title.length < 3) {
-        return 'Your app title must be longer than 3 characters.';
-      }
-      return true;
-    }
-  }, {
-    type: 'input',
-    name: 'description',
-    message: 'Set your webapp description :'
-  }, {
-    type: 'input',
-    name: 'url',
-    message: 'What is the domain name you will use to access webapp ?',
-    validate: function(url) {
-      if (url.match(/^(?=.{1,254}$)((?=[a-z0-9-]{1,63}\.)(xn--+)?[a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,63}$/i)) {
-        return true;
-      }
-      return 'Your url appears to be invalid';
-    }
-  }
-];
+q = new PROMPT(isRoot(), DEFAULT_WWW).questions();
 
-inquirer.prompt(questions).then(function(answers) {
+inquirer.prompt(q).then(function(answers) {
   var config, www;
-  console.log('\n[+] Webapp summary:');
-  console.log(JSON.stringify(answers, null, 2));
+  console.log('\n[+] Webapp summary:'.blue.bold);
+  console.log(JSON.stringify(answers, null, 2).blue.bold);
   config = {};
   config.APP_NAME = answers.name;
   config.APP_TITLE = answers.title;
   config.APP_DESCRIPTION = answers.desc;
-  config.APP_KEYWORDS = ["app", "easy", "sass", "less", "coffee", "jade"];
+  config.APP_KEYWORDS = ["app", "nawac", "easy", "sass", "less", "coffee", "jade"];
   config.APP_URL = answers.url;
   config.PORT = 8080;
   config.REFRESH_PORT = 8081;
+  config.BACKEND = answers.backend;
+  config.FRONTEND = answers.frontend;
   config.REFRESH_EVT = "refresh";
   config.ERROR_EVT = "err";
   config.APP_BUILD_CLIENT = "./build/client";
@@ -212,69 +118,79 @@ inquirer.prompt(questions).then(function(answers) {
   config.LIBS_BUNDLE = "vendor.min.js";
   config.APP_SCRIPTS = ["vendor.min.js", "main.min.js"];
   config.APP_STYLES = ["main.min.css"];
-  console.log("\n[+] Retrieve webapp skeleton ...");
+  if (answers.frontend === "Bootstrap-sass") {
+    config.INCLUDE_STYLES_PATH.push("./node_modules/bootstrap-sass/assets/stylesheets/");
+  }
+  console.log("\n[+] Retrieve webapp skeleton ...".white.bold);
   www = answers.init_dir + "/" + (answers.name.toLowerCase());
-  return nodegit.Clone("https://github.com/x42en/webapp-skeleton", www, {}).then(function(repo) {
-    var err, error, error1;
+  return clone("https://github.com/x42en/webapp-skeleton", www, function(err) {
+    var error, error1;
+    if (err) {
+      throw "Error while cloning webapp-skeleton: " + err;
+    }
     try {
-      console.log("[+] Clean directory ...");
+      console.log("[+] Clean directory ...".white.bold);
       exec("rm -rf " + www + "/.git");
       exec("rm " + www + "/README.md");
     } catch (error) {
       err = error;
-      console.log("[!] Error while cleaning webapp directory:");
-      console.log(err);
+      console.log("[!] Error while cleaning webapp directory:".red);
+      console.log(("" + err).red);
       return false;
     }
     try {
-      console.log("[+] Store config file ...");
+      console.log("[+] Store config file ...".white.bold);
       fs.writeFile(www + "/app.config.json", JSON.stringify(config, null, 4), 'utf-8');
     } catch (error1) {
       err = error1;
-      console.log("[!] Error while writing config file:");
-      console.log(err);
+      console.log("[!] Error while writing config file:".red);
+      console.log(("" + err).red);
       return false;
     }
-    console.log("\n[+] Retrieve webapp template ...");
-    return nodegit.Clone("https://github.com/x42en/webapp-simple", www + "/app", {}).then(function(repo) {
-      var error2, error3, error4, error5, error6, host_available, host_content, host_enable, node_available, node_content, node_enable;
+    console.log("\n[+] Retrieve webapp template ...".white.bold);
+    return clone("https://github.com/x42en/webapp-simple", www + "/app", function(err) {
+      var error2, error3, error4, error5, error6, host_available, host_content, host_enable, node_available, node_content, node_enable, sf;
+      if (err) {
+        throw "Error while cloning webapp-simple: " + err;
+      }
       try {
-        console.log("[+] Clean app directory ...");
+        console.log("[+] Clean app directory ...".white.bold);
         exec("rm -rf " + www + "/app/.git");
         exec("rm " + www + "/app/README.md");
       } catch (error2) {
         err = error2;
-        console.log("[!] Error while cleaning webapp directory:");
-        console.log(err);
+        console.log("[!] Error while cleaning webapp directory:".red);
+        console.log(("" + err).red);
         return false;
       }
       try {
-        console.log("[+] Please wait while 'npm install' (this could take a while) ...");
+        console.log("[+] Please wait while 'npm install' (this could take a while) ...".white.bold);
         exec("npm install", {
           cwd: www
         });
       } catch (error3) {
         err = error3;
-        console.log("[!] Error while running 'npm install':");
-        console.log(err);
+        console.log("[!] Error while running 'npm install':".red);
+        console.log(("" + err).red);
         return false;
       }
-      host_content = get_vhost(answers, www);
+      sf = new SERVER_FILES(answers, www);
+      host_content = sf.get_vhost();
       if (answers.server === 'nginx') {
         host_available = "/etc/nginx/sites-available/" + (answers.name.toLowerCase());
         host_enable = "/etc/nginx/sites-enabled/" + (answers.name.toLowerCase());
-        if (answers.node) {
+        if (indexOf.call(answers.backend, 'NodeJS') >= 0) {
           node_available = "/etc/nginx/sites-available/node." + (answers.name.toLowerCase());
           node_enable = "/etc/nginx/sites-enabled/node." + (answers.name.toLowerCase());
-          node_content = get_node(answers, www);
+          node_content = sf.get_node();
         }
       } else {
         host_available = "/etc/apache2/sites-available/" + (answers.name.toLowerCase());
         host_enable = "/etc/apache2/sites-enable/" + (answers.name.toLowerCase());
-        if (answers.node) {
+        if (indexOf.call(answers.backend, 'NodeJS') >= 0) {
           node_available = "/etc/apache2/sites-available/node." + (answers.name.toLowerCase());
           node_enable = "/etc/apache2/sites-enable/node." + (answers.name.toLowerCase());
-          node_content = get_node(answers, www);
+          node_content = sf.get_node();
         }
       }
       if (answers.configure) {
@@ -283,22 +199,22 @@ inquirer.prompt(questions).then(function(answers) {
             exec("chgrp -R www-data " + www);
           } catch (error4) {
             err = error4;
-            console.log("[!] Error while correct webapp group owner:");
-            console.log(err);
+            console.log("[!] Error while correct webapp group owner:".red);
+            console.log(("" + err).red);
             return false;
           }
           try {
-            console.log("[+] Write " + answers.server + " config file for http://" + answers.url);
+            console.log(("[+] Write " + answers.server + " config file for http://" + answers.url).white.bold);
             fs.writeFile(host_available, host_content, 'utf-8');
           } catch (error5) {
             err = error5;
-            console.log("[!] Error while adding vhost file:");
-            console.log(err);
+            console.log("[!] Error while adding vhost file:".red);
+            console.log(("" + err).red);
             return false;
           }
           try {
             exec("ln -s " + host_available + " " + host_enable);
-            console.log("[+] Restart " + answers.server + " ...");
+            console.log(("[+] Restart " + answers.server + " ...").white.bold);
             exec("service " + answers.server + " restart");
             fs.appendFile('/etc/hosts', "127.0.0.1    " + answers.url + " www." + answers.url + "\n", 'utf-8');
             if (answers.node) {
@@ -306,40 +222,37 @@ inquirer.prompt(questions).then(function(answers) {
             }
           } catch (error6) {
             err = error6;
-            console.log("[!] Error while modifying hosts file:");
-            console.log(err);
+            console.log("[!] Error while modifying hosts file:".red);
+            console.log(("" + err).red);
             return false;
           }
         } else if (_.includes(platform.os.toString().toLowerCase(), 'mac')) {
-          console.log("[!] Sorry we do not support mac platform yet for auto-configuration ...");
+          console.log("[!] Sorry we do not support mac platform yet for auto-configuration ...".yellow);
           return false;
         } else {
-          console.log("[!] Sorry we do not support windows platform yet for auto-configuration ...");
+          console.log("[!] Sorry we do not support windows platform yet for auto-configuration ...".yellow);
           return false;
         }
       } else if (!isRoot()) {
-        console.log("\n[+] If you were running this script as root I would have done this:");
-        console.log("[-] Add in host file (/etc/hosts) " + answers.url + " www." + answers.url + " -> 127.0.0.1");
-        console.log("[-] Add in host file (/etc/hosts) node." + answers.url + " -> 127.0.0.1");
-        console.log("[-] Add vhost file for " + answers.url + " in " + host_available + ": ");
-        console.log(host_content);
-        console.log("[-] Activate it by soft-linking " + host_available + " to " + host_enable);
+        console.log("\n[+] If you were running this script as root I would have done this:\n".red);
+        console.log(("[-] Add in host file (/etc/hosts) " + answers.url + " www." + answers.url + " -> 127.0.0.1").yellow);
+        console.log(("[-] Add in host file (/etc/hosts) node." + answers.url + " -> 127.0.0.1").yellow);
+        console.log(("[-] Add vhost file for " + answers.url + " in " + host_available + ": ").yellow);
+        console.log(("" + host_content).cyan);
+        console.log(("[-] Activate it by soft-linking " + host_available + " to " + host_enable).yellow);
         if (answers.node) {
-          console.log("[-] Add vhost file for node." + answers.url + " in " + node_available + ": ");
-          console.log(node_content);
-          console.log("[-] Activate it by soft-linking " + node_available + " to " + node_enable);
+          console.log(("[-] Add vhost file for node." + answers.url + " in " + node_available + ": ").yellow);
+          console.log(("" + node_content).cyan);
+          console.log(("[-] Activate it by soft-linking " + node_available + " to " + node_enable).yellow);
         }
-        console.log("[-] Restart " + answers.server + " ...\n");
+        console.log(("[-] Restart " + answers.server + " ...\n").yellow);
       }
-      console.log("\n[+] Good, everything seems fine !");
-      console.log("[+] Go to -> " + www);
-      console.log("[+] Type 'gulp' to compile and launch server...");
-      console.log("[+] Access your webapp using: http://" + answers.url + "\n");
-      return console.log("[+] Happy C0d1ng !! ;) \n");
-    })["catch"](function(err) {
-      return console.log("[!] Error while cloning template repo: " + err);
+      console.log("\n[+] Good, everything seems fine !".green);
+      console.log(("[+] Go to -> " + www + "\n").green);
+      console.log("[+] 1/2 Type 'gulp' to compile and launch server...".green);
+      console.log("[+] 2/2 Type 'npm run gulp' if you do not have gulp installed globally...".green);
+      console.log(("\n[+] Access your webapp at: http://" + answers.url + "\n").green);
+      return console.log("[+] Happy C0d1ng !! ;) \n".rainbow);
     });
-  })["catch"](function(err) {
-    return console.log("[!] Error while cloning skeleton repo: " + err);
   });
 });

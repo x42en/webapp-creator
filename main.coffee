@@ -2,25 +2,32 @@
 `
 
 # Compile file using:
-# coffee -o bin/ -w --bare --no-header -c main.coffee
+# coffee -o bin/ -w --bare --no-header -c main.coffee questions.coffee server_files.coffee
 
 fs         = require "fs"
 path       = require "path"
+colors     = require "colors"
 apacheconf = require "apacheconf"
 isRoot     = require "is-root"
 inquirer   = require "inquirer"
-nodegit    = require "nodegit"
+clone      = require "git-clone"
 platform   = require "platform"
 sys        = require "util"
 exec       = require "sync-exec"
 _          = require "lodash"
 
-VERSION  = '0.1.3'
+VERSION    = '0.1.4'
 
-console.log "\n..:: N-other Angular WebApp Creator - [NAWAC] ::..\n"
+console.log "\n..:: N-other Angular WebApp Creator - [NAWAC] ::..\n".yellow.bold
 
-console.log "[+] Welcome on NAWAC v.#{VERSION}"
-console.log "[+] You are using #{platform.os}\n"
+console.log "[+] Welcome on NAWAC v.#{VERSION}".white.bold
+console.log "[+] You are using #{platform.os}\n".white.bold
+
+if isRoot()
+    console.log "[+] You are root, Good!\n".green
+else
+    console.log "[-] Your are NOT root...".red.bold
+    console.log "[-] I won't be able to modify server and hosts files.\n".red.bold
 
 getApacheDirectory = (rootDir) ->
     files = fs.readdirSync(rootDir)
@@ -31,233 +38,69 @@ getApacheDirectory = (rootDir) ->
             return file
     return null
     
+# WINDOWS CHECKER
 if _.includes(platform.os.toString().toLowerCase(), 'win')
+    # Check if WAMP / EASYPHP / APACHE / NGINX is installed
+
     # Get 32 or 64bit version
     wamp = if fs.existsSync('C:\\\\wamp\\') then "wamp" else "wamp64"
 
-    # Get wamp apache version
-    apache = getApacheDirectory "C:\\\\#{wamp}\\bin\\apache\\"
-    if apache
-        console.log "[+] You are using #{apache}"
-    else
-        console.log "[!] Unable to detect your apache version sorry..."
+    if fs.existsSync "C:\\\\#{wamp}\\bin\\apache\\"
+        # Get wamp apache version
+        apache = getApacheDirectory "C:\\\\#{wamp}\\bin\\apache\\"
+        if apache
+            console.log "[+] You are using #{apache}".green
+        else
+            console.log "[!] Unable to detect your web server version sorry...".yellow
     
-    #Retrieve document Root from WAMP config
-    apacheconf "C:\\\\#{wamp}\\bin\\apache\\#{apache}\\conf\\httpd.conf", (err, config, parser) ->
-        if err
-            throw err
+        #Retrieve document Root from WAMP config
+        apacheconf "C:\\\\#{wamp}\\bin\\apache\\#{apache}\\conf\\httpd.conf", (err, config, parser) ->
+            if err
+                throw err
 
-        return false
+            return false
 
     DEFAULT_WWW = 'C:\\\\wamp\\www'
+
+# MAC OS X CHECKER
 else if _.includes(platform.os.toString().toLowerCase(), 'mac')
-    #Retrieve document Root from MAMP config
-    apacheconf '/etc/apache2/httpd.conf', (err, config, parser) ->
-        if err
-            throw err
+    # Check if WAMP / EASYPHP / APACHE / NGINX is installed
 
-        console.log config
-        return false
+    if fs.existsSync '/etc/apache2/httpd.conf'
+        #Retrieve document Root from MAMP config
+        apacheconf '/etc/apache2/httpd.conf', (err, config, parser) ->
+            if err
+                throw err
 
-    DEFAULT_WWW = '/Applications/MAMP/htdocs'
+            return false
+
+        DEFAULT_WWW = '/Applications/MAMP/htdocs'
+
+# LINUX CHECKER
 else
     DEFAULT_WWW = '/var/www'
 
+PROMPT       = require './questions'
+SERVER_FILES = require './server_files'
 
-
-
-get_vhost = (answers, www) ->
-    if answers.server is 'nginx'
-        return """server {
-       \tlisten 80;
-
-       \tserver_name #{answers.url} www.#{answers.url};
-
-       \troot #{www}/build/client;
-       \tindex index.php;
-
-       \tcharset utf-8;
-
-       \taccess_log /var/log/nginx/#{answers.name.toLowerCase()}.error.log;
-       \terror_log /var/log/nginx/#{answers.name.toLowerCase()}.access.log;
-
-       \tlocation = /favicon.ico { access_log off; log_not_found off; }
-
-       \tlocation / {
-               try_files $uri $uri/ /index.php?$query_string;
-       \t}
-
-       \tsendfile off;
-
-       \tlocation ~ \\.php$ {
-                include snippets/fastcgi-php.conf;
-                fastcgi_pass unix:/var/run/php5-fpm.sock;
-                include fastcgi_params;
-        \t}
-
-        \tlocation ~ /\\.ht {
-                deny all;
-        \t}
-}\n"""
-    else
-        return """<VirtualHost *:80>
-    \tDocumentRoot "#{www}"
-    \tServerName www.#{answers.url}
-    \tServerAlias #{answers.url}
-
-    \t# If an existing asset or directory is requested go to it as it is
-    \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -f [OR]
-    \tRewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -d
-    \tRewriteRule ^ - [L]
-
-    \t# If the requested resource doesn't exist, use index.php
-    \tRewriteRule ^ /index.php
-
-    \t<Directory "#{www}"
-        Options Indexes FollowSymLinks MultiViews
-        AllowOverride all
-        Require local
-    \t</Directory>
-</VirtualHost>\n"""
-
-get_node = (answers, www) ->
-    if answers.server is 'nginx'
-        return """upstream node_server {
-    \tserver 127.0.0.1:8000;
-}
-
-server {
-    \tcharset UTF-8;
-    \tlisten 80;
-    \tserver_name node.#{answers.url};
-
-    \tlocation / {
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $http_host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-NginX-Proxy true;
-        proxy_pass http://node_server/;
-        proxy_ssl_session_reuse off;
-        proxy_redirect off;
-    \t}
-
-    \tlocation ~ /\\. {
-        deny all;
-    \t}
-}
-\n"""
-    else
-        return ""
-
-questions = [
-    {
-        type: 'list'
-        name: 'configure'
-        message: 'Do you want us to auto-configure your webserver ?'
-        choices: ['Yes', 'No']
-        default: 'Yes'
-        filter: (val) ->
-            val = if val is 'Yes' then true else false
-        when: (answers) ->
-            return isRoot()
-    },
-    {
-        type: 'list'
-        name: 'server'
-        message: 'What is your web server ?'
-        choices: ['Nginx', 'Apache']
-        filter: (val) ->
-            val.toLowerCase()
-    },
-    {
-        type: 'input'
-        name: 'init_dir'
-        message: 'Where are located your websites ?'
-        default: DEFAULT_WWW
-        validate: (name) ->
-            if name.length < 3
-                return 'Your app name must be longer than 3 characters.'
-            return true
-    },
-    {
-        type: 'list'
-        name: 'site'
-        message: 'What is your project template ?'
-        choices: ['Simple', 'Custom']
-        filter: (val) ->
-            val.toLowerCase()
-    },
-    {
-        type: 'input'
-        name: 'git'
-        message: 'Enter the https github repository to use :'
-        validate: (name) ->
-            if name.substring(0,8) isnt 'https://'
-                return 'This does not appear to be a valid repository.'
-            return true
-        when: (answers) ->
-            return (answers.site is 'custom')
-    },
-    {
-        type: 'list'
-        name: 'node'
-        message: 'Do you need server side process (node) ?'
-        choices: ['Yes', 'No']
-        default: 'Yes'
-        filter: (val) ->
-            val = if val is 'Yes' then true else false
-    },
-    {
-        type: 'input'
-        name: 'name'
-        message: 'What is your project name ?'
-        validate: (name) ->
-            if name.length < 3
-                return 'Your app name must be longer than 3 characters.'
-            return true
-    },
-    {
-        type: 'input'
-        name: 'title'
-        message: 'Set your webapp title :'
-        validate: (title) ->
-            if title.length < 3
-                return 'Your app title must be longer than 3 characters.'
-            return true
-    },
-    {
-        type: 'input'
-        name: 'description'
-        message: 'Set your webapp description :'
-    },
-    {
-        type: 'input'
-        name: 'url'
-        message: 'What is the domain name you will use to access webapp ?'
-        validate: (url) ->
-            if url.match(/^(?=.{1,254}$)((?=[a-z0-9-]{1,63}\.)(xn--+)?[a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,63}$/i)
-                return true
-            return 'Your url appears to be invalid'
-    }
-]
+q  = new PROMPT(isRoot(), DEFAULT_WWW).questions()
 
 inquirer
-    .prompt(questions)
+    .prompt(q)
     .then( (answers) ->
-        console.log '\n[+] Webapp summary:'
-        console.log JSON.stringify(answers, null, 2)
+        console.log '\n[+] Webapp summary:'.blue.bold
+        console.log JSON.stringify(answers, null, 2).blue.bold
 
         config = {}
         config.APP_NAME            = answers.name
         config.APP_TITLE           = answers.title
         config.APP_DESCRIPTION     = answers.desc
-        config.APP_KEYWORDS        = ["app","easy","sass","less","coffee","jade"]
+        config.APP_KEYWORDS        = ["app","nawac","easy","sass","less","coffee","jade"]
         config.APP_URL             = answers.url
         config.PORT                = 8080
         config.REFRESH_PORT        = 8081
+        config.BACKEND             = answers.backend
+        config.FRONTEND            = answers.frontend
         config.REFRESH_EVT         = "refresh"
         config.ERROR_EVT           = "err"
         config.APP_BUILD_CLIENT    = "./build/client"
@@ -272,77 +115,85 @@ inquirer
         config.APP_SCRIPTS         = ["vendor.min.js", "main.min.js"]
         config.APP_STYLES          = ["main.min.css"]
 
+        # Adapt sass path in order to @import 'bootstrap'
+        if answers.frontend is "Bootstrap-sass"
+            config.INCLUDE_STYLES_PATH.push "./node_modules/bootstrap-sass/assets/stylesheets/"
+
         # Retrieve website skeleton
-        console.log "\n[+] Retrieve webapp skeleton ..."
+        console.log "\n[+] Retrieve webapp skeleton ...".white.bold
         www = "#{answers.init_dir}/#{answers.name.toLowerCase()}"
 
-        nodegit.Clone("https://github.com/x42en/webapp-skeleton", www, {})
-            .then( (repo) ->
-                
+        clone "https://github.com/x42en/webapp-skeleton", www,
+            (err) ->
+                if err
+                    throw "Error while cloning webapp-skeleton: #{err}"
                 try
                     # Remove .git and README
-                    console.log "[+] Clean directory ..."
+                    console.log "[+] Clean directory ...".white.bold
                     exec "rm -rf #{www}/.git"
                     exec "rm #{www}/README.md"
                 catch err
-                    console.log "[!] Error while cleaning webapp directory:"
-                    console.log err
+                    console.log "[!] Error while cleaning webapp directory:".red
+                    console.log "#{err}".red
                     return false
 
                 try  
                     # Build app.config.json
-                    console.log "[+] Store config file ..."
+                    console.log "[+] Store config file ...".white.bold
                     fs.writeFile "#{www}/app.config.json", JSON.stringify(config, null, 4) , 'utf-8'
                 catch err
-                    console.log "[!] Error while writing config file:"
-                    console.log err
+                    console.log "[!] Error while writing config file:".red
+                    console.log "#{err}".red
                     return false
 
                 # Clone template choosen
-                console.log "\n[+] Retrieve webapp template ..."
-                nodegit.Clone("https://github.com/x42en/webapp-simple", "#{www}/app", {})
-                    .then( (repo) ->
+                console.log "\n[+] Retrieve webapp template ...".white.bold
+                clone "https://github.com/x42en/webapp-simple", "#{www}/app",
+                    (err) ->
+                        if err
+                            throw "Error while cloning webapp-simple: #{err}"
                         try
                             # Remove .git and README
-                            console.log "[+] Clean app directory ..."
+                            console.log "[+] Clean app directory ...".white.bold
                             exec "rm -rf #{www}/app/.git"
                             exec "rm #{www}/app/README.md"
                         catch err
-                            console.log "[!] Error while cleaning webapp directory:"
-                            console.log err
+                            console.log "[!] Error while cleaning webapp directory:".red
+                            console.log "#{err}".red
                             return false
 
                         try
                             # Exec npm install
-                            console.log "[+] Please wait while 'npm install' (this could take a while) ..."
+                            console.log "[+] Please wait while 'npm install' (this could take a while) ...".white.bold
                             exec("npm install",{cwd: www})
                         catch err
-                            console.log "[!] Error while running 'npm install':"
-                            console.log err
+                            console.log "[!] Error while running 'npm install':".red
+                            console.log "#{err}".red
                             return false
 
+                        sf = new SERVER_FILES answers, www
                         # Check server
-                        host_content = get_vhost answers, www
+                        host_content = sf.get_vhost()
                         if answers.server is 'nginx'
                             host_available = "/etc/nginx/sites-available/#{answers.name.toLowerCase()}"
                             host_enable    = "/etc/nginx/sites-enabled/#{answers.name.toLowerCase()}"
                             
-                            if answers.node
+                            if 'NodeJS' in answers.backend
                                 node_available = "/etc/nginx/sites-available/node.#{answers.name.toLowerCase()}"
                                 node_enable    = "/etc/nginx/sites-enabled/node.#{answers.name.toLowerCase()}"
-                                node_content   = get_node answers, www
+                                node_content   = sf.get_node()
 
                         else
                             host_available = "/etc/apache2/sites-available/#{answers.name.toLowerCase()}"
                             host_enable    = "/etc/apache2/sites-enable/#{answers.name.toLowerCase()}"
 
-                            if answers.node
+                            if  'NodeJS' in answers.backend
                                 node_available = "/etc/apache2/sites-available/node.#{answers.name.toLowerCase()}"
                                 node_enable    = "/etc/apache2/sites-enable/node.#{answers.name.toLowerCase()}"
-                                node_content   = get_node answers, www
+                                node_content   = sf.get_node()
                             
 
-                        # If user ask for auto-configuration
+                        # If user ask for auto-configuration (then is root)
                         if answers.configure
                             # CHeck plateform
                             if _.includes(platform.os.toString().toLowerCase(), 'linux')
@@ -350,23 +201,23 @@ inquirer
                                     # Modify website owner
                                     exec "chgrp -R www-data #{www}"
                                 catch err
-                                    console.log "[!] Error while correct webapp group owner:"
-                                    console.log err
+                                    console.log "[!] Error while correct webapp group owner:".red
+                                    console.log "#{err}".red
                                     return false
 
                                 try
                                     # Write server vhost file
-                                    console.log "[+] Write #{answers.server} config file for http://#{answers.url}"
+                                    console.log "[+] Write #{answers.server} config file for http://#{answers.url}".white.bold
                                     fs.writeFile host_available, host_content, 'utf-8'
                                 catch err  
-                                    console.log "[!] Error while adding vhost file:"
-                                    console.log err
+                                    console.log "[!] Error while adding vhost file:".red
+                                    console.log "#{err}".red
                                     return false
 
                                 try
                                     exec "ln -s #{host_available} #{host_enable}"
                                     # Restart server
-                                    console.log "[+] Restart #{answers.server} ..."
+                                    console.log "[+] Restart #{answers.server} ...".white.bold
                                     exec "service #{answers.server} restart"
 
                                     # Add host entry for url
@@ -376,49 +227,42 @@ inquirer
                                         # Add node entry
                                         fs.appendFile '/etc/hosts', "127.0.0.1    node.#{answers.url}\n", 'utf-8'
                                 catch err
-                                    console.log "[!] Error while modifying hosts file:"
-                                    console.log err
+                                    console.log "[!] Error while modifying hosts file:".red
+                                    console.log "#{err}".red
                                     return false
                             
                             else if _.includes(platform.os.toString().toLowerCase(), 'mac')
                                 # Catch mac errors
-                                console.log "[!] Sorry we do not support mac platform yet for auto-configuration ..."
+                                console.log "[!] Sorry we do not support mac platform yet for auto-configuration ...".yellow
                                 return false
                             else
                                 # Catch windows errors
-                                console.log "[!] Sorry we do not support windows platform yet for auto-configuration ..."
+                                console.log "[!] Sorry we do not support windows platform yet for auto-configuration ...".yellow
                                 return false
                         # If user is not root
                         else if !isRoot()
-                            console.log "\n[+] If you were running this script as root I would have done this:"
-                            console.log "[-] Add in host file (/etc/hosts) #{answers.url} www.#{answers.url} -> 127.0.0.1"
-                            console.log "[-] Add in host file (/etc/hosts) node.#{answers.url} -> 127.0.0.1"
-                            console.log "[-] Add vhost file for #{answers.url} in #{host_available}: "
-                            console.log host_content
-                            console.log "[-] Activate it by soft-linking #{host_available} to #{host_enable}"
+                            console.log "\n[+] If you were running this script as root I would have done this:\n".red
+                            console.log "[-] Add in host file (/etc/hosts) #{answers.url} www.#{answers.url} -> 127.0.0.1".yellow
+                            console.log "[-] Add in host file (/etc/hosts) node.#{answers.url} -> 127.0.0.1".yellow
+                            console.log "[-] Add vhost file for #{answers.url} in #{host_available}: ".yellow
+                            console.log "#{host_content}".cyan
+                            console.log "[-] Activate it by soft-linking #{host_available} to #{host_enable}".yellow
                             
                             if answers.node
-                                console.log "[-] Add vhost file for node.#{answers.url} in #{node_available}: "
-                                console.log node_content
-                                console.log "[-] Activate it by soft-linking #{node_available} to #{node_enable}"
+                                console.log "[-] Add vhost file for node.#{answers.url} in #{node_available}: ".yellow
+                                console.log "#{node_content}".cyan
+                                console.log "[-] Activate it by soft-linking #{node_available} to #{node_enable}".yellow
                             
-                            console.log "[-] Restart #{answers.server} ...\n"
+                            console.log "[-] Restart #{answers.server} ...\n".yellow
 
                         # Final thoughts
-                        console.log "\n[+] Good, everything seems fine !"
-                        console.log "[+] Go to -> #{www}"
-                        console.log "[+] Type 'gulp' to compile and launch server..."
+                        console.log "\n[+] Good, everything seems fine !".green
+                        console.log "[+] Go to -> #{www}\n".green
+                        console.log "[+] 1/2 Type 'gulp' to compile and launch server...".green
+                        console.log "[+] 2/2 Type 'npm run gulp' if you do not have gulp installed globally...".green
                         # Show url to user
-                        console.log "[+] Access your webapp using: http://#{answers.url}\n"
+                        console.log "\n[+] Access your webapp at: http://#{answers.url}\n".green
 
-                        console.log "[+] Happy C0d1ng !! ;) \n"
-                    )
-                    .catch( (err) ->
-                        console.log "[!] Error while cloning template repo: #{err}"
-                    )        
-                
-            )
-            .catch( (err) ->
-                console.log "[!] Error while cloning skeleton repo: #{err}"
-            )
+                        console.log "[+] Happy C0d1ng !! ;) \n".rainbow
+                    
     )
