@@ -16,7 +16,7 @@ sys        = require "util"
 exec       = require "sync-exec"
 _          = require "lodash"
 
-VERSION    = '0.1.5'
+VERSION    = '0.1.6'
 HOST_FILE  = '/etc/hosts'
 OS_NAME    = 'linux'
 
