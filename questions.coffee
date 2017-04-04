@@ -1,9 +1,18 @@
-fs = require 'fs'
+fs   = require 'fs'
+path = require 'path'
 
 class Prompt
     constructor: (@isRoot, @OS_NAME) ->
         @DEFAULT_WWW = '/var/www'
         @PATHS = require '../known_paths.json'
+    canWrite: (file_path) ->
+        test_path = path.join file_path, "tmp"
+        try
+            fs.writeFileSync test_path
+            fs.unlinkSync test_path
+        catch e
+            return false
+        return true
     questions: () ->
         [
             {
@@ -37,12 +46,12 @@ class Prompt
                 name: 'init_dir'
                 message: 'Where are located your websites ?'
                 default: "#{@DEFAULT_WWW}"
-                validate: (name) ->
+                validate: (name) =>
                     if (name.lastIndexOf('/') is -1) or name.length < 3
                         return 'Server path seems invalid.'
                     unless fs.statSync(name).isDirectory()
                         return 'This is not a directory, or it does not exists.'
-                    unless canWrite name
+                    unless @canWrite name
                         return 'Sorry, this directory is not writeable.'
                     return true
             },

@@ -1,6 +1,8 @@
-var Prompt, fs;
+var Prompt, fs, path;
 
 fs = require('fs');
+
+path = require('path');
 
 Prompt = (function() {
   function Prompt(isRoot, OS_NAME) {
@@ -9,6 +11,19 @@ Prompt = (function() {
     this.DEFAULT_WWW = '/var/www';
     this.PATHS = require('../known_paths.json');
   }
+
+  Prompt.prototype.canWrite = function(file_path) {
+    var e, error, test_path;
+    test_path = path.join(file_path, "tmp");
+    try {
+      fs.writeFileSync(test_path);
+      fs.unlinkSync(test_path);
+    } catch (error) {
+      e = error;
+      return false;
+    }
+    return true;
+  };
 
   Prompt.prototype.questions = function() {
     return [
@@ -35,18 +50,20 @@ Prompt = (function() {
         name: 'init_dir',
         message: 'Where are located your websites ?',
         "default": "" + this.DEFAULT_WWW,
-        validate: function(name) {
-          if ((name.lastIndexOf('/') === -1) || name.length < 3) {
-            return 'Server path seems invalid.';
-          }
-          if (!fs.statSync(name).isDirectory()) {
-            return 'This is not a directory, or it does not exists.';
-          }
-          if (!canWrite(name)) {
-            return 'Sorry, this directory is not writeable.';
-          }
-          return true;
-        }
+        validate: (function(_this) {
+          return function(name) {
+            if ((name.lastIndexOf('/') === -1) || name.length < 3) {
+              return 'Server path seems invalid.';
+            }
+            if (!fs.statSync(name).isDirectory()) {
+              return 'This is not a directory, or it does not exists.';
+            }
+            if (!_this.canWrite(name)) {
+              return 'Sorry, this directory is not writeable.';
+            }
+            return true;
+          };
+        })(this)
       }, {
         type: 'list',
         name: 'site',
