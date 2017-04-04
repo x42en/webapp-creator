@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 ;
-var DEFAULT_WWW, PROMPT, SERVER_FILES, VERSION, _, apache, apacheconf, clone, colors, exec, fs, getApacheDirectory, inquirer, isRoot, path, platform, q, sys, wamp,
+var HOST_FILE, OS_NAME, PROMPT, SERVER_FILES, VERSION, _, apacheconf, canWrite, clone, colors, exec, found, fs, getApacheDirectory, inquirer, isRoot, path, platform, q, sys,
   indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
 fs = require("fs");
@@ -25,7 +25,11 @@ exec = require("sync-exec");
 
 _ = require("lodash");
 
-VERSION = '0.1.4';
+VERSION = '0.1.5';
+
+HOST_FILE = '/etc/hosts';
+
+OS_NAME = 'linux';
 
 console.log("\n..:: N-other Angular WebApp Creator - [NAWAC] ::..\n".yellow.bold);
 
@@ -33,78 +37,76 @@ console.log(("[+] Welcome on NAWAC v." + VERSION).white.bold);
 
 console.log(("[+] You are using " + platform.os + "\n").white.bold);
 
-if (isRoot()) {
-  console.log("[+] You are root, Good!\n".green);
-} else {
-  console.log("[-] Your are NOT root...".red.bold);
-  console.log("[-] I won't be able to modify server and hosts files.\n".red.bold);
-}
-
 getApacheDirectory = function(rootDir) {
-  var file, filePath, files, i, len, stat;
+  var file, filePath, files, i, len;
   files = fs.readdirSync(rootDir);
   for (i = 0, len = files.length; i < len; i++) {
     file = files[i];
     filePath = rootDir + "/" + file;
-    stat = fs.statSync(filePath);
-    if (stat.isDirectory() && file.lastIndexOf('apache', 0) === 0) {
+    if (fs.statSync(filePath).isDirectory() && file.lastIndexOf('apache', 0) === 0) {
       return file;
     }
   }
   return null;
 };
 
-if (_.includes(platform.os.toString().toLowerCase(), 'win')) {
-  wamp = fs.existsSync('C:\\\\wamp\\') ? "wamp" : "wamp64";
-  if (fs.existsSync("C:\\\\" + wamp + "\\bin\\apache\\")) {
-    apache = getApacheDirectory("C:\\\\" + wamp + "\\bin\\apache\\");
-    if (apache) {
-      console.log(("[+] You are using " + apache).green);
-    } else {
-      console.log("[!] Unable to detect your web server version sorry...".yellow);
-    }
-    apacheconf("C:\\\\" + wamp + "\\bin\\apache\\" + apache + "\\conf\\httpd.conf", function(err, config, parser) {
-      if (err) {
-        throw err;
-      }
-      return false;
-    });
+canWrite = function(file_path) {
+  var e, error, test_path;
+  test_path = path.join(file_path, "tmp");
+  try {
+    fs.writeFileSync(test_path);
+    fs.unlinkSync(test_path);
+  } catch (error) {
+    e = error;
+    return false;
   }
-  DEFAULT_WWW = 'C:\\\\wamp\\www';
-} else if (_.includes(platform.os.toString().toLowerCase(), 'mac')) {
-  if (fs.existsSync('/etc/apache2/httpd.conf')) {
-    apacheconf('/etc/apache2/httpd.conf', function(err, config, parser) {
-      if (err) {
-        throw err;
-      }
-      return false;
-    });
-    DEFAULT_WWW = '/Applications/MAMP/htdocs';
-  }
+  return true;
+};
+
+found = platform.os.toString().toLowerCase();
+
+if (_.includes(found, 'win')) {
+  OS_NAME = 'windows';
+  HOST_FILE = "C:\\\\Windows\\System32\\drivers\\etc\\hosts";
+} else if (_.includes(found, 'mac')) {
+  OS_NAME = 'mac';
+  HOST_FILE = '/etc/hosts';
+} else if (_.includes(found, 'linux')) {
+  OS_NAME = 'linux';
+  HOST_FILE = '/etc/hosts';
 } else {
-  DEFAULT_WWW = '/var/www';
+  console.log("[!] Unable to detect your platform, please open-request with this signature:".red);
+  console.log(("-- Plateform: " + platform.os + " --").red);
+  console.log(JSON.stringify(platform).red);
+  console.log("\n");
+  process.exit(1);
+}
+
+if (!canWrite(HOST_FILE)) {
+  console.log("[WARNING] You can NOT modify host file\n".yellow);
 }
 
 PROMPT = require('./questions');
 
 SERVER_FILES = require('./server_files');
 
-q = new PROMPT(isRoot(), DEFAULT_WWW).questions();
+q = new PROMPT(isRoot(), OS_NAME).questions();
 
 inquirer.prompt(q).then(function(answers) {
   var config, www;
   console.log('\n[+] Webapp summary:'.blue.bold);
   console.log(JSON.stringify(answers, null, 2).blue.bold);
   config = {};
+  config.PRODUCTION = false;
   config.APP_NAME = answers.name;
   config.APP_TITLE = answers.title;
   config.APP_DESCRIPTION = answers.description;
   config.APP_KEYWORDS = ["app", "nawac", "easy", "sass", "less", "coffee", "jade"];
   config.APP_URL = answers.url;
-  config.PORT = 8080;
-  config.REFRESH_PORT = 8081;
   config.BACKEND = answers.backend;
   config.FRONTEND = answers.frontend;
+  config.PORT = 8080;
+  config.REFRESH_PORT = 8081;
   config.REFRESH_EVT = "refresh";
   config.ERROR_EVT = "err";
   config.APP_BUILD_CLIENT = "./build/client";

@@ -16,74 +16,68 @@ sys        = require "util"
 exec       = require "sync-exec"
 _          = require "lodash"
 
-VERSION    = '0.1.4'
+VERSION    = '0.1.5'
+HOST_FILE  = '/etc/hosts'
+OS_NAME    = 'linux'
 
 console.log "\n..:: N-other Angular WebApp Creator - [NAWAC] ::..\n".yellow.bold
 
 console.log "[+] Welcome on NAWAC v.#{VERSION}".white.bold
 console.log "[+] You are using #{platform.os}\n".white.bold
 
-if isRoot()
-    console.log "[+] You are root, Good!\n".green
-else
-    console.log "[-] Your are NOT root...".red.bold
-    console.log "[-] I won't be able to modify server and hosts files.\n".red.bold
-
 getApacheDirectory = (rootDir) ->
     files = fs.readdirSync(rootDir)
     for file in files
         filePath = "#{rootDir}/#{file}"
-        stat = fs.statSync(filePath)
-        if stat.isDirectory() and file.lastIndexOf('apache', 0) is 0
+        if fs.statSync(filePath).isDirectory() and file.lastIndexOf('apache', 0) is 0
             return file
     return null
+
+canWrite = (file_path) ->
+    test_path = path.join file_path, "tmp"
+    try
+        fs.writeFileSync test_path
+        fs.unlinkSync test_path
+    catch e
+        return false
+    return true
     
+##### TODO ######################
+# 1. Check if WAMP / EASYPHP / APACHE / NGINX is installed (path checking ?)
+#################################
+
+found = platform.os.toString().toLowerCase()
+
 # WINDOWS CHECKER
-if _.includes(platform.os.toString().toLowerCase(), 'win')
-    # Check if WAMP / EASYPHP / APACHE / NGINX is installed
-
-    # Get 32 or 64bit version
-    wamp = if fs.existsSync('C:\\\\wamp\\') then "wamp" else "wamp64"
-
-    if fs.existsSync "C:\\\\#{wamp}\\bin\\apache\\"
-        # Get wamp apache version
-        apache = getApacheDirectory "C:\\\\#{wamp}\\bin\\apache\\"
-        if apache
-            console.log "[+] You are using #{apache}".green
-        else
-            console.log "[!] Unable to detect your web server version sorry...".yellow
-    
-        #Retrieve document Root from WAMP config
-        apacheconf "C:\\\\#{wamp}\\bin\\apache\\#{apache}\\conf\\httpd.conf", (err, config, parser) ->
-            if err
-                throw err
-
-            return false
-
-    DEFAULT_WWW = 'C:\\\\wamp\\www'
+if _.includes(found, 'win')
+    OS_NAME = 'windows'
+    HOST_FILE = "C:\\\\Windows\\System32\\drivers\\etc\\hosts"
 
 # MAC OS X CHECKER
-else if _.includes(platform.os.toString().toLowerCase(), 'mac')
-    # Check if WAMP / EASYPHP / APACHE / NGINX is installed
-
-    if fs.existsSync '/etc/apache2/httpd.conf'
-        #Retrieve document Root from MAMP config
-        apacheconf '/etc/apache2/httpd.conf', (err, config, parser) ->
-            if err
-                throw err
-
-            return false
-
-        DEFAULT_WWW = '/Applications/MAMP/htdocs'
+else if _.includes(found, 'mac')
+    OS_NAME = 'mac'
+    HOST_FILE = '/etc/hosts'
 
 # LINUX CHECKER
-else
-    DEFAULT_WWW = '/var/www'
+else if _.includes(found, 'linux')
+    OS_NAME = 'linux'
+    HOST_FILE = '/etc/hosts'
+
+else 
+    console.log "[!] Unable to detect your platform, please open-request with this signature:".red
+    console.log "-- Plateform: #{platform.os} --".red
+    console.log JSON.stringify(platform).red
+    console.log "\n"
+    # Exit
+    process.exit 1
+
+unless canWrite HOST_FILE
+    console.log "[WARNING] You can NOT modify host file\n".yellow
 
 PROMPT       = require './questions'
 SERVER_FILES = require './server_files'
 
-q  = new PROMPT(isRoot(), DEFAULT_WWW).questions()
+q  = new PROMPT(isRoot(), OS_NAME).questions()
 
 inquirer
     .prompt(q)
@@ -92,15 +86,16 @@ inquirer
         console.log JSON.stringify(answers, null, 2).blue.bold
 
         config = {}
+        config.PRODUCTION          = false
         config.APP_NAME            = answers.name
         config.APP_TITLE           = answers.title
         config.APP_DESCRIPTION     = answers.description
         config.APP_KEYWORDS        = ["app","nawac","easy","sass","less","coffee","jade"]
         config.APP_URL             = answers.url
-        config.PORT                = 8080
-        config.REFRESH_PORT        = 8081
         config.BACKEND             = answers.backend
         config.FRONTEND            = answers.frontend
+        config.PORT                = 8080
+        config.REFRESH_PORT        = 8081
         config.REFRESH_EVT         = "refresh"
         config.ERROR_EVT           = "err"
         config.APP_BUILD_CLIENT    = "./build/client"

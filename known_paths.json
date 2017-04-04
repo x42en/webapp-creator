@@ -1,0 +1,26 @@
+{
+    "nginx": {
+        "windows": [
+            ""
+        ],
+        "mac": [
+            "/opt/local/sbin/nginx"
+        ],
+        "linux": [
+            "/usr/sbin/nginx"
+        ]
+    },
+    "apache": {
+        "windows": [
+            "C:\\\\wamp\\bin\\apache\\",
+            "C:\\\\wamp64\\bin\\apache\\"
+        ],
+        "mac": [
+            "/opt/local/sbin/apache"
+        ],
+        "linux": [
+            "/usr/sbin/apache",
+            "/usr/sbin/apache2"
+        ]
+    }
+}

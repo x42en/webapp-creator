@@ -69,7 +69,7 @@ class SERVER_FILES
 
     get_node: () ->
         if @answers.server is 'nginx'
-            NODE_HOST = """upstream node_server {
+            NODE_HOST = """upstream node_#{@answers.name.toLowerCase()} {
     \tserver 127.0.0.1:8000;
 }
 
@@ -86,7 +86,7 @@ server {
     \t    proxy_set_header X-Real-IP $remote_addr;
     \t    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     \t    proxy_set_header X-NginX-Proxy true;
-    \t    proxy_pass http://node_server/;
+    \t    proxy_pass http://node_#{@answers.name.toLowerCase()}/;
     \t    proxy_ssl_session_reuse off;
     \t    proxy_redirect off;
     \t}
@@ -97,7 +97,7 @@ server {
 }
 \n"""
         else
-            NODE_HOST = ""
+            NODE_HOST = "Sorry apache does not support that well socket.io processes"
 
         return NODE_HOST
 

@@ -28,9 +28,9 @@ SERVER_FILES = (function() {
   SERVER_FILES.prototype.get_node = function() {
     var NODE_HOST;
     if (this.answers.server === 'nginx') {
-      NODE_HOST = "upstream node_server {\n\tserver 127.0.0.1:8000;\n}\n\nserver {\n\tcharset UTF-8;\n\tlisten 80;\n\tserver_name node." + this.answers.url + ";\n\n\tlocation / {\n\t    proxy_http_version 1.1;\n\t    proxy_set_header Upgrade $http_upgrade;\n\t    proxy_set_header Connection \"upgrade\";\n\t    proxy_set_header Host $http_host;\n\t    proxy_set_header X-Real-IP $remote_addr;\n\t    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n\t    proxy_set_header X-NginX-Proxy true;\n\t    proxy_pass http://node_server/;\n\t    proxy_ssl_session_reuse off;\n\t    proxy_redirect off;\n\t}\n\n\tlocation ~ /\\. {\n    deny all;\n\t}\n}\n\n";
+      NODE_HOST = "upstream node_" + (this.answers.name.toLowerCase()) + " {\n\tserver 127.0.0.1:8000;\n}\n\nserver {\n\tcharset UTF-8;\n\tlisten 80;\n\tserver_name node." + this.answers.url + ";\n\n\tlocation / {\n\t    proxy_http_version 1.1;\n\t    proxy_set_header Upgrade $http_upgrade;\n\t    proxy_set_header Connection \"upgrade\";\n\t    proxy_set_header Host $http_host;\n\t    proxy_set_header X-Real-IP $remote_addr;\n\t    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n\t    proxy_set_header X-NginX-Proxy true;\n\t    proxy_pass http://node_" + (this.answers.name.toLowerCase()) + "/;\n\t    proxy_ssl_session_reuse off;\n\t    proxy_redirect off;\n\t}\n\n\tlocation ~ /\\. {\n    deny all;\n\t}\n}\n\n";
     } else {
-      NODE_HOST = "";
+      NODE_HOST = "Sorry apache does not support that well socket.io processes";
     }
     return NODE_HOST;
   };

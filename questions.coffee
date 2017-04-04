@@ -1,5 +1,9 @@
+fs = require 'fs'
+
 class Prompt
-    constructor: (@isRoot,@DEFAULT_WWW) ->
+    constructor: (@isRoot, @OS_NAME) ->
+        @DEFAULT_WWW = '/var/www'
+        @PATHS = require '../known_paths.json'
     questions: () ->
         [
             {
@@ -7,25 +11,39 @@ class Prompt
                 name: 'configure'
                 message: 'Do you want us to auto-configure your webserver ?'
                 default: true
-                when: (answers) =>
-                    return @isRoot
+                when: (answers) => @isRoot
             },
             {
                 type: 'list'
                 name: 'server'
                 message: 'What is your web server ?'
                 choices: ['Nginx', 'Apache']
-                filter: (val) ->
-                    val.toLowerCase()
+                filter: (val) -> val.toLowerCase()
+                    # console.log "Checking #{server}"
+                    # exit(1)
+                    # for p of @PATHS[server][@OS_NAME]
+                    #     console.log "Checking #{p}"
+                    #     if fs.existsSync(p)
+                    #         @DEFAULT_WWW = p
+                    #         unless canWrite @DEFAULT_WWW
+                    #             console.log "[WARNING] You can NOT modify #{server} directory\n".yellow
+                    #         else
+                    #             console.log "[+] Found #{server} on #{@DEFAULT_WWW}\n".green
+                    #         return val.toLowerCase()
+                    # return 'Sorry, it does not seems to be installed'
             },
             {
                 type: 'input'
                 name: 'init_dir'
                 message: 'Where are located your websites ?'
-                default: @DEFAULT_WWW
+                default: "#{@DEFAULT_WWW}"
                 validate: (name) ->
-                    if name.length < 3
-                        return 'Your app name must be longer than 3 characters.'
+                    if (name.lastIndexOf('/') is -1) or name.length < 3
+                        return 'Server path seems invalid.'
+                    unless fs.statSync(name).isDirectory()
+                        return 'This is not a directory, or it does not exists.'
+                    unless canWrite name
+                        return 'Sorry, this directory is not writeable.'
                     return true
             },
             {

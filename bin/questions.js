@@ -1,9 +1,13 @@
-var Prompt;
+var Prompt, fs;
+
+fs = require('fs');
 
 Prompt = (function() {
-  function Prompt(isRoot, DEFAULT_WWW) {
+  function Prompt(isRoot, OS_NAME) {
     this.isRoot = isRoot;
-    this.DEFAULT_WWW = DEFAULT_WWW;
+    this.OS_NAME = OS_NAME;
+    this.DEFAULT_WWW = '/var/www';
+    this.PATHS = require('../known_paths.json');
   }
 
   Prompt.prototype.questions = function() {
@@ -30,10 +34,16 @@ Prompt = (function() {
         type: 'input',
         name: 'init_dir',
         message: 'Where are located your websites ?',
-        "default": this.DEFAULT_WWW,
+        "default": "" + this.DEFAULT_WWW,
         validate: function(name) {
-          if (name.length < 3) {
-            return 'Your app name must be longer than 3 characters.';
+          if ((name.lastIndexOf('/') === -1) || name.length < 3) {
+            return 'Server path seems invalid.';
+          }
+          if (!fs.statSync(name).isDirectory()) {
+            return 'This is not a directory, or it does not exists.';
+          }
+          if (!canWrite(name)) {
+            return 'Sorry, this directory is not writeable.';
           }
           return true;
         }
