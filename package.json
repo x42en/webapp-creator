@@ -12,7 +12,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/%3Ax42en/webapp-creator.git"
+    "url": "https://github.com/x42en/webapp-creator.git"
   },
   "keywords": [
     "Web",
@@ -27,9 +27,9 @@
   "author": "x42en",
   "license": "GPL-2.0",
   "bugs": {
-    "url": "https://github.com/%3Ax42en/webapp-creator/issues"
+    "url": "https://github.com/x42en/webapp-creator/issues"
   },
-  "homepage": "https://github.com/%3Ax42en/webapp-creator#readme",
+  "homepage": "https://github.com/x42en/webapp-creator#readme",
   "dependencies": {
     "apacheconf": "0.0.5",
     "colors": "^1.1.2",
