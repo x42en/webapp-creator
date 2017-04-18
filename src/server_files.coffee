@@ -70,7 +70,7 @@ class SERVER_FILES
     get_node: () ->
         if @answers.server is 'nginx'
             NODE_HOST = """upstream node_#{@answers.name.toLowerCase()} {
-    \tserver 127.0.0.1:8000;
+    \tserver 127.0.0.1:#{@answers.nodeport};
 }
 
 server {

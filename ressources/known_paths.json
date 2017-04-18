@@ -1,0 +1,25 @@
+{
+    "nginx": {
+        "windows": [
+            "C:\\nginx\\conf"
+        ],
+        "mac": [
+            "/opt/local/etc/nginx"
+        ],
+        "linux": [
+            "/etc/nginx"
+        ]
+    },
+    "apache": {
+        "windows": [
+            "C:\\wamp\\conf\\apache\\",
+            "C:\\wamp64\\conf\\apache\\"
+        ],
+        "mac": [
+            "/opt/local/etc/apache"
+        ],
+        "linux": [
+            "/etc/apache"
+        ]
+    }
+}

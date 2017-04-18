@@ -1,24 +1,19 @@
-fs   = require 'fs'
-path = require 'path'
+fs    = require 'fs'
+path  = require 'path'
+SITES = require '../ressources/sites.json'
+UTILS = require './utils'
 
 class Prompt
-    constructor: (@isRoot, @OS_NAME) ->
+    constructor: (@isRoot, @OS_NAME, @DEV_PORT) ->
         @DEFAULT_WWW = '/var/www'
-        @PATHS = require '../known_paths.json'
-    canWrite: (file_path) ->
-        test_path = path.join file_path, "tmp"
-        try
-            fs.writeFileSync test_path
-            fs.unlinkSync test_path
-        catch e
-            return false
-        return true
+        @utils = new UTILS()
+
     questions: () ->
         [
             {
                 type: 'confirm'
                 name: 'configure'
-                message: 'Do you want us to auto-configure your webserver ?'
+                message: 'Do you want to auto-configure your webserver ?'
                 default: true
                 when: (answers) => @isRoot
             },
@@ -27,19 +22,8 @@ class Prompt
                 name: 'server'
                 message: 'What is your web server ?'
                 choices: ['Nginx', 'Apache']
+                default: 'Nginx'
                 filter: (val) -> val.toLowerCase()
-                    # console.log "Checking #{server}"
-                    # exit(1)
-                    # for p of @PATHS[server][@OS_NAME]
-                    #     console.log "Checking #{p}"
-                    #     if fs.existsSync(p)
-                    #         @DEFAULT_WWW = p
-                    #         unless canWrite @DEFAULT_WWW
-                    #             console.log "[WARNING] You can NOT modify #{server} directory\n".yellow
-                    #         else
-                    #             console.log "[+] Found #{server} on #{@DEFAULT_WWW}\n".green
-                    #         return val.toLowerCase()
-                    # return 'Sorry, it does not seems to be installed'
             },
             {
                 type: 'input'
@@ -49,19 +33,19 @@ class Prompt
                 validate: (name) =>
                     if (name.lastIndexOf('/') is -1) or name.length < 3
                         return 'Server path seems invalid.'
-                    unless fs.statSync(name).isDirectory()
+                    unless @utils.checkDirectorySync name
                         return 'This is not a directory, or it does not exists.'
-                    unless @canWrite name
+                    unless @utils.canWrite name
                         return 'Sorry, this directory is not writeable.'
+                    @init_dir = name
                     return true
             },
             {
                 type: 'list'
-                name: 'site'
+                name: 'template'
                 message: 'What is your project template ?'
-                choices: ['Simple', 'Custom']
-                filter: (val) ->
-                    val.toLowerCase()
+                choices: SITES.NAME
+                default: 'Simple-chat'
             },
             {
                 type: 'input'
@@ -71,8 +55,7 @@ class Prompt
                     if name.substring(0,8) isnt 'https://'
                         return 'This does not appear to be a valid repository.'
                     return true
-                when: (answers) ->
-                    return (answers.site is 'custom')
+                when: (answers) -> (answers.template is 'Custom')
             },
             {
                 type: 'checkbox'
@@ -82,19 +65,46 @@ class Prompt
                 default: ['NodeJS', 'PHP']
             },
             {
+                type: 'confirm'
+                name: 'ssl'
+                message: 'Will you use ssl ?'
+                default: false
+            },
+            {
                 type: 'list'
                 name: 'frontend'
                 message: 'Select your frontend framework'
-                choices: ['None', 'Bootstrap-sass', 'Bootstrap (v3)', 'Foundation', 'Semantic-ui']
+                choices: ['None', 'Bootstrap', 'Foundation']
+                # choices: ['None', 'Bootstrap', 'Foundation', 'Semantic-ui']
+                # For Bootstrap -> npm install --save bootstrap-sass (https://www.npmjs.com/package/bootstrap-sass)
+                # For Foundation -> npm install --save foundation-sites (http://foundation.zurb.com/sites/docs/sass.html)
+                # For Semantic -> 
                 default: 'None'
+            },
+            {
+                type: 'input'
+                name: 'nodeport'
+                message: 'Select a port for local node process'
+                default: 8082
+                when: (answers) -> ('NodeJS' in answers.backend)
+                validate: (port) =>
+                    unless typeof port is 'number'
+                        return 'Your port must be a number.'
+                    if port < 1024 or port > 65535
+                        return 'Your port must be between 1024 and 65535.'
+                    if port is @DEV_PORT
+                        return 'Sorry this port is reserved for gulp process.'
+                    return true
             },
             {
                 type: 'input'
                 name: 'name'
                 message: 'What is your project name ?'
-                validate: (name) ->
+                validate: (name) =>
                     if name.length < 3
                         return 'Your app name must be longer than 3 characters.'
+                    if @utils.checkDirectorySync "#{@init_dir}/#{name}"
+                        return 'Sorry this project already exists.'
                     return true
             },
             {
