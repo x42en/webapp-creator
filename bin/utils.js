@@ -43,7 +43,7 @@ module.exports = Utils = (function() {
     var file, filePath, files;
     files = fs.readdirSync(rootDir);
     for (file in files) {
-      filePath = rootDir + "/" + file;
+      filePath = path.join(rootDir, file);
       if (fs.statSync(filePath).isDirectory() && file.lastIndexOf('apache', 0) === 0) {
         return file;
       }

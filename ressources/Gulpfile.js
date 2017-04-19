@@ -189,8 +189,8 @@ var getNPMPackageIds = function () {
 var getLibs = function () {
   var libs = getNPMPackageIds().concat([], getBowerPackageIds());
   // Remove server libs from bundle
-  libs = _.difference(libs,CONFIG.SERVER_LIBS);
-  return libs;
+  client_libs = _.difference(libs,CONFIG.SERVER_LIBS);
+  return client_libs;
 }
 
 

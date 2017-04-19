@@ -26,7 +26,7 @@ module.exports = class Utils
     getApacheDirectory: (rootDir) ->
         files = fs.readdirSync(rootDir)
         for file of files
-            filePath = "#{rootDir}/#{file}"
+            filePath = path.join rootDir, file
             if fs.statSync(filePath).isDirectory() and file.lastIndexOf('apache', 0) is 0
                 return file
         return null

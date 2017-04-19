@@ -161,7 +161,7 @@ inquirer.prompt(q).then(function(answers) {
   console.log(("\n[+] Retrieve " + answers.template + " template -> " + template + " ...").white.bold);
   return clone(template, www + "/app", (function(_this) {
     return function(err) {
-      var error2, error3, error4, error5, error6, error7, error8, error9, gulpfile, host_available, host_content, host_enable, node_available, node_content, node_enable, npm_package, sf;
+      var devDependencies, error2, error3, error4, error5, error6, error7, error8, error9, gulpfile, host_available, host_content, host_enable, node_available, node_content, node_enable, npm_package, project, sf;
       if (err) {
         throw "Error while cloning webapp template: " + err;
       }
@@ -207,60 +207,15 @@ inquirer.prompt(q).then(function(answers) {
         "gulp": "gulp"
       };
       npm_package.keywords = ["webapp", "nawac", "web", "tool", "auto", "client", "full-stack", "server", "js", "coffee", "sass", "scss", "jade", "pug", "html"];
-      npm_package.author = "x42en";
-      npm_package.license = "GPL-2.0";
-      npm_package.devDependencies = {
-        "babelify": "^7.3.0",
-        "bower-resolve": "^2.2.1",
-        "browserify": "^13.1.0",
-        "coffeeify": "^2.1.0",
-        "del": "^2.2.2",
-        "glob": "^7.0.5",
-        "gulp": "^3.9.1",
-        "gulp-angular-htmlify": "^2.3.0",
-        "gulp-autoprefixer": "^3.1.0",
-        "gulp-buffer": "0.0.2",
-        "gulp-clean": "^0.3.2",
-        "gulp-clean-css": "^2.0.12",
-        "gulp-coffee": "^2.3.3",
-        "gulp-concat": "^2.6.0",
-        "gulp-data": "^1.2.1",
-        "gulp-develop-server": "^0.5.2",
-        "gulp-if": "^2.0.1",
-        "gulp-imagemin": "^3.1.1",
-        "gulp-less": "^3.1.0",
-        "gulp-plumber": "^1.1.0",
-        "gulp-pug": "^3.0.3",
-        "gulp-rename": "^1.2.2",
-        "gulp-replace": "^0.5.4",
-        "gulp-sass": "^2.3.2",
-        "gulp-sourcemaps": "^1.6.0",
-        "gulp-uglify": "^1.5.4",
-        "gulp-util": "^3.0.7",
-        "gulp-watch": "^4.3.11",
-        "lodash": "^4.17.4",
-        "merge-stream": "^1.0.0",
-        "mkdirp": "^0.5.1",
-        "path": "^0.12.7",
-        "pretty-error": "^2.0.0",
-        "socket.io": "^1.4.8",
-        "through2": "^2.0.3",
-        "vinyl-buffer": "^1.0.0",
-        "vinyl-source-stream": "^1.1.0",
-        "vinyl-transform": "^1.0.0",
-        "watchify": "^3.7.0"
-      };
-      npm_package.dependencies = {
-        "angular": "^1.6.2",
-        "angular-animate": "^1.6.2",
-        "angular-dnd-module": "^0.1.24",
-        "angular-tooltips": "^1.1.10",
-        "angular-touch": "^1.6.2",
-        "angular-ui-router": "^0.4.2",
-        "ioserver": "^0.2.0",
-        "mongo-sync": "^2.0.1",
-        "socket.io-client": "^1.4.8"
-      };
+      npm_package.author = answers.author;
+      npm_package.license = answers.license;
+      devDependencies = require.resolve('../ressources/dev_dependencies.json');
+      npm_package.devDependencies = require(devDependencies);
+      npm_package.dependencies = {};
+      if (fs.statSync(www + "/app/nawac.json").isFile()) {
+        project = require(www + "/app/nawac.json");
+        _.merge(npm_package.dependencies, project.client, project.server);
+      }
       try {
         console.log("[+] Write package.json ...".white.bold);
         fs.writeFileSync(www + "/package.json", JSON.stringify(npm_package, null, 4), 'utf-8');
@@ -288,7 +243,7 @@ inquirer.prompt(q).then(function(answers) {
         node_content = sf.get_node();
       }
       if (answers.configure) {
-        if (_.includes(platform.os.toString().toLowerCase(), 'linux')) {
+        if (OS_NAME === 'linux') {
           try {
             exec("chgrp -R www-data " + www);
           } catch (error7) {
@@ -320,11 +275,14 @@ inquirer.prompt(q).then(function(answers) {
             console.log(("" + err).red);
             return false;
           }
-        } else if (_.includes(platform.os.toString().toLowerCase(), 'mac')) {
+        } else if (OS_NAME === 'mac') {
           console.log("[!] Sorry we do not support mac platform yet for auto-configuration ...".yellow);
           return false;
-        } else {
+        } else if (OS_NAME === 'windows') {
           console.log("[!] Sorry we do not support windows platform yet for auto-configuration ...".yellow);
+          return false;
+        } else {
+          console.log("[!] Sorry we do not support this platform yet for auto-configuration ...".yellow);
           return false;
         }
       } else if (!isRoot()) {

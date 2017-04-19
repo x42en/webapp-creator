@@ -195,6 +195,8 @@ inquirer
                     console.log "#{err}".red
                     return false
 
+                # Define standard package vars
+                # respect https://docs.npmjs.com/files/package.json
                 npm_package = {}
                 npm_package.name        = answers.name
                 npm_package.version     = '0.1.0'
@@ -203,61 +205,19 @@ inquirer
                 npm_package.main        = 'Gulpfile.js'
                 npm_package.scripts     = {"test":"echo \"Error: no test specified\" && exit 1","gulp": "gulp"}
                 npm_package.keywords    = ["webapp","nawac","web","tool","auto","client","full-stack","server","js","coffee","sass","scss","jade","pug","html"]
-                npm_package.author      = "x42en"
-                npm_package.license     = "GPL-2.0"
-                npm_package.devDependencies = {
-                    "babelify": "^7.3.0"
-                    "bower-resolve": "^2.2.1"
-                    "browserify": "^13.1.0"
-                    "coffeeify": "^2.1.0"
-                    "del": "^2.2.2"
-                    "glob": "^7.0.5"
-                    "gulp": "^3.9.1"
-                    "gulp-angular-htmlify": "^2.3.0"
-                    "gulp-autoprefixer": "^3.1.0"
-                    "gulp-buffer": "0.0.2"
-                    "gulp-clean": "^0.3.2"
-                    "gulp-clean-css": "^2.0.12"
-                    "gulp-coffee": "^2.3.3"
-                    "gulp-concat": "^2.6.0"
-                    "gulp-data": "^1.2.1"
-                    "gulp-develop-server": "^0.5.2"
-                    "gulp-if": "^2.0.1"
-                    "gulp-imagemin": "^3.1.1"
-                    "gulp-less": "^3.1.0"
-                    "gulp-plumber": "^1.1.0"
-                    "gulp-pug": "^3.0.3"
-                    "gulp-rename": "^1.2.2"
-                    "gulp-replace": "^0.5.4"
-                    "gulp-sass": "^2.3.2"
-                    "gulp-sourcemaps": "^1.6.0"
-                    "gulp-uglify": "^1.5.4"
-                    "gulp-util": "^3.0.7"
-                    "gulp-watch": "^4.3.11"
-                    "lodash": "^4.17.4"
-                    "merge-stream": "^1.0.0"
-                    "mkdirp": "^0.5.1"
-                    "path": "^0.12.7"
-                    "pretty-error": "^2.0.0"
-                    "socket.io": "^1.4.8"
-                    "through2": "^2.0.3"
-                    "vinyl-buffer": "^1.0.0"
-                    "vinyl-source-stream": "^1.1.0"
-                    "vinyl-transform": "^1.0.0"
-                    "watchify": "^3.7.0"
-                }
-                npm_package.dependencies = {
-                    "angular": "^1.6.2",
-                    "angular-animate": "^1.6.2",
-                    "angular-dnd-module": "^0.1.24",
-                    "angular-tooltips": "^1.1.10",
-                    "angular-touch": "^1.6.2",
-                    "angular-ui-router": "^0.4.2",
-                    "ioserver": "^0.2.0",
-                    "mongo-sync": "^2.0.1",
-                    "socket.io-client": "^1.4.8"
-                }
+                npm_package.author      = answers.author
+                npm_package.license     = answers.license
+                
+                # Set project dev dependencies
+                devDependencies             = require.resolve '../ressources/dev_dependencies.json'
+                npm_package.devDependencies = require devDependencies
 
+                # Set project dependencies
+                npm_package.dependencies = {}
+                if fs.statSync("#{www}/app/nawac.json").isFile()
+                    project = require "#{www}/app/nawac.json" 
+                    _.merge npm_package.dependencies, project.client, project.server
+                
                 try
                     # Write package.json
                     console.log "[+] Write package.json ...".white.bold
@@ -289,8 +249,8 @@ inquirer
 
                 # If user ask for auto-configuration (then is root)
                 if answers.configure
-                    # CHeck plateform
-                    if _.includes(platform.os.toString().toLowerCase(), 'linux')
+                    # Check plateform
+                    if OS_NAME is 'linux'
                         try
                             # Modify website owner
                             exec "chgrp -R www-data #{www}"
@@ -325,14 +285,19 @@ inquirer
                             console.log "#{err}".red
                             return false
                     
-                    else if _.includes(platform.os.toString().toLowerCase(), 'mac')
+                    else if OS_NAME is 'mac'
                         # Catch mac errors
                         console.log "[!] Sorry we do not support mac platform yet for auto-configuration ...".yellow
                         return false
-                    else
+                    else if OS_NAME is 'windows'
                         # Catch windows errors
                         console.log "[!] Sorry we do not support windows platform yet for auto-configuration ...".yellow
                         return false
+                    else
+                        # Catch windows errors
+                        console.log "[!] Sorry we do not support this platform yet for auto-configuration ...".yellow
+                        return false
+
                 # If user is not root
                 else if !isRoot()
                     console.log "\n[+] If you were running this script as root I would have done these extra-steps:\n".red

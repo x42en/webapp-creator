@@ -48,6 +48,13 @@ class Prompt
                 default: 'Simple-chat'
             },
             {
+                type: 'list'
+                name: 'license'
+                message: 'What is your project license ?'
+                choices: ['UNLICENSED','GPL-2.0','Apache-2.0','MIT','ISC']
+                default: 'UNLICENSED'
+            },
+            {
                 type: 'input'
                 name: 'git'
                 message: 'Enter the https github repository to use :'
