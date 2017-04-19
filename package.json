@@ -32,6 +32,7 @@
   "homepage": "https://github.com/x42en/webapp-creator#readme",
   "dependencies": {
     "apacheconf": "0.0.5",
+    "coffee-script": "^1.12.5",
     "colors": "^1.1.2",
     "git-clone": "^0.1.0",
     "inquirer": "^3.0.1",
