@@ -30,14 +30,13 @@ class Prompt
                 name: 'init_dir'
                 message: 'Where are located your websites ?'
                 default: "#{@DEFAULT_WWW}"
-                validate: (name) =>
-                    if (name.lastIndexOf('/') is -1) or name.length < 3
+                validate: (@init_dir) =>
+                    if (init_dir.lastIndexOf('/') is -1) or init_dir.length < 3
                         return 'Server path seems invalid.'
-                    unless @utils.checkDirectorySync name
+                    unless @utils.checkDirectorySync init_dir
                         return 'This is not a directory, or it does not exists.'
-                    unless @utils.canWrite name
+                    unless @utils.canWrite init_dir
                         return 'Sorry, this directory is not writeable.'
-                    @init_dir = name
                     return true
             },
             {
@@ -48,9 +47,19 @@ class Prompt
                 default: 'Simple-chat'
             },
             {
+                type: 'input'
+                name: 'author'
+                message: 'Set your project author :'
+                default: 'undefined'
+                validate: (author) ->
+                    if author.length < 2
+                        return 'Your project author must be longer than 2 characters.'
+                    return true
+            },
+            {
                 type: 'list'
                 name: 'license'
-                message: 'What is your project license ?'
+                message: 'Set your project license :'
                 choices: ['UNLICENSED','GPL-2.0','Apache-2.0','MIT','ISC']
                 default: 'UNLICENSED'
             },

@@ -45,17 +45,17 @@ Prompt = (function() {
         message: 'Where are located your websites ?',
         "default": "" + this.DEFAULT_WWW,
         validate: (function(_this) {
-          return function(name) {
-            if ((name.lastIndexOf('/') === -1) || name.length < 3) {
+          return function(init_dir1) {
+            _this.init_dir = init_dir1;
+            if ((init_dir.lastIndexOf('/') === -1) || init_dir.length < 3) {
               return 'Server path seems invalid.';
             }
-            if (!_this.utils.checkDirectorySync(name)) {
+            if (!_this.utils.checkDirectorySync(init_dir)) {
               return 'This is not a directory, or it does not exists.';
             }
-            if (!_this.utils.canWrite(name)) {
+            if (!_this.utils.canWrite(init_dir)) {
               return 'Sorry, this directory is not writeable.';
             }
-            _this.init_dir = name;
             return true;
           };
         })(this)
@@ -66,9 +66,20 @@ Prompt = (function() {
         choices: SITES.NAME,
         "default": 'Simple-chat'
       }, {
+        type: 'input',
+        name: 'author',
+        message: 'Set your project author :',
+        "default": 'undefined',
+        validate: function(author) {
+          if (author.length < 2) {
+            return 'Your project author must be longer than 2 characters.';
+          }
+          return true;
+        }
+      }, {
         type: 'list',
         name: 'license',
-        message: 'What is your project license ?',
+        message: 'Set your project license :',
         choices: ['UNLICENSED', 'GPL-2.0', 'Apache-2.0', 'MIT', 'ISC'],
         "default": 'UNLICENSED'
       }, {
