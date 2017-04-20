@@ -214,7 +214,10 @@ inquirer.prompt(q).then(function(answers) {
       npm_package.dependencies = {};
       if (fs.statSync(www + "/app/nawac.json").isFile()) {
         project = require(www + "/app/nawac.json");
-        _.merge(npm_package.dependencies, project.client, project.server);
+        _.merge(npm_package.dependencies, project.npm, project.server);
+        if (Object.keys(project.bower).length > 0) {
+          console.log("[+] Build bower.json (TODO)");
+        }
       }
       try {
         console.log("[+] Write package.json ...".white.bold);
