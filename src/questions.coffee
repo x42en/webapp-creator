@@ -31,11 +31,11 @@ class Prompt
                 message: 'Where are located your websites ?'
                 default: "#{@DEFAULT_WWW}"
                 validate: (@init_dir) =>
-                    if (init_dir.lastIndexOf('/') is -1) or init_dir.length < 3
+                    if (@init_dir.lastIndexOf('/') is -1) or @init_dir.length < 3
                         return 'Server path seems invalid.'
-                    unless @utils.checkDirectorySync init_dir
+                    unless @utils.checkDirectorySync @init_dir
                         return 'This is not a directory, or it does not exists.'
-                    unless @utils.canWrite init_dir
+                    unless @utils.canWrite @init_dir
                         return 'Sorry, this directory is not writeable.'
                     return true
             },

@@ -45,15 +45,15 @@ Prompt = (function() {
         message: 'Where are located your websites ?',
         "default": "" + this.DEFAULT_WWW,
         validate: (function(_this) {
-          return function(init_dir1) {
-            _this.init_dir = init_dir1;
-            if ((init_dir.lastIndexOf('/') === -1) || init_dir.length < 3) {
+          return function(init_dir) {
+            _this.init_dir = init_dir;
+            if ((_this.init_dir.lastIndexOf('/') === -1) || _this.init_dir.length < 3) {
               return 'Server path seems invalid.';
             }
-            if (!_this.utils.checkDirectorySync(init_dir)) {
+            if (!_this.utils.checkDirectorySync(_this.init_dir)) {
               return 'This is not a directory, or it does not exists.';
             }
-            if (!_this.utils.canWrite(init_dir)) {
+            if (!_this.utils.canWrite(_this.init_dir)) {
               return 'Sorry, this directory is not writeable.';
             }
             return true;
