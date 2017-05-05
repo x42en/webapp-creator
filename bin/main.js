@@ -161,7 +161,7 @@ inquirer.prompt(q).then(function(answers) {
   console.log(("\n[+] Retrieve " + answers.template + " template -> " + template + " ...").white.bold);
   return clone(template, www + "/app", (function(_this) {
     return function(err) {
-      var devDependencies, error2, error3, error4, error5, error6, error7, error8, error9, gulpfile, host_available, host_content, host_enable, node_available, node_content, node_enable, npm_package, project, sf;
+      var devDependencies, error10, error11, error2, error3, error4, error5, error6, error7, error8, error9, gulpfile, host_available, host_content, host_enable, node_available, node_content, node_enable, npm_package, project, sf;
       if (err) {
         throw "Error while cloning webapp template: " + err;
       }
@@ -177,11 +177,22 @@ inquirer.prompt(q).then(function(answers) {
       }
       if (indexOf.call(answers.backend, 'NodeJS') >= 0) {
         try {
-          console.log("[+] Store socket config file ...".white.bold);
-          fs.writeFileSync(www + "/app/client/angular/services/sockets.json", JSON.stringify(node, null, 4), 'utf-8');
+          console.log("[+] Store client socket config file ...".white.bold);
+          fs.writeFileSync(www + "/app/client/angular/sockets.json", JSON.stringify(node, null, 4), 'utf-8');
         } catch (error3) {
           err = error3;
-          console.log("[!] Error while writing socket config file:".red);
+          console.log("[!] Error while writing client socket config file:".red);
+          console.log(("" + err).red);
+          return false;
+        }
+        try {
+          console.log("[+] Store server socket config file ...".white.bold);
+          node = {};
+          node.NODE_PORT = answers.nodeport;
+          fs.writeFileSync(www + "/app/server/sockets.json", JSON.stringify(node, null, 4), 'utf-8');
+        } catch (error4) {
+          err = error4;
+          console.log("[!] Error while writing server socket config file:".red);
           console.log(("" + err).red);
           return false;
         }
@@ -190,8 +201,8 @@ inquirer.prompt(q).then(function(answers) {
         console.log("[+] Copy Gulp file ...".white.bold);
         gulpfile = require.resolve('../ressources/Gulpfile.js');
         utils.copyFileSync(gulpfile, www + "/Gulpfile.js");
-      } catch (error4) {
-        err = error4;
+      } catch (error5) {
+        err = error5;
         console.log("[!] Error while copying Gulp file:".red);
         console.log(("" + err).red);
         return false;
@@ -222,16 +233,19 @@ inquirer.prompt(q).then(function(answers) {
       try {
         console.log("[+] Write package.json ...".white.bold);
         fs.writeFileSync(www + "/package.json", JSON.stringify(npm_package, null, 4), 'utf-8');
-      } catch (error5) {
-        err = error5;
+      } catch (error6) {
+        err = error6;
         console.log("[!] Error while writing package.json:".red);
         console.log(("" + err).red);
         return false;
       }
       try {
         console.log("[+] Please wait while 'npm install' (this could take a while) ...".white.bold);
-      } catch (error6) {
-        err = error6;
+        exec("npm install", {
+          cwd: www
+        });
+      } catch (error7) {
+        err = error7;
         console.log("[!] Error while running 'npm install':".red);
         console.log(("" + err).red);
         return false;
@@ -249,8 +263,8 @@ inquirer.prompt(q).then(function(answers) {
         if (OS_NAME === 'linux') {
           try {
             exec("chgrp -R www-data " + www);
-          } catch (error7) {
-            err = error7;
+          } catch (error8) {
+            err = error8;
             console.log("[!] Error while correct webapp group owner:".red);
             console.log(("" + err).red);
             return false;
@@ -258,22 +272,38 @@ inquirer.prompt(q).then(function(answers) {
           try {
             console.log(("[+] Write " + answers.server + " config file for http://" + answers.url).white.bold);
             fs.writeFile(host_available, host_content, 'utf-8');
-          } catch (error8) {
-            err = error8;
+          } catch (error9) {
+            err = error9;
             console.log("[!] Error while adding vhost file:".red);
             console.log(("" + err).red);
             return false;
           }
+          if (indexOf.call(answers.backend, 'NodeJS') >= 0) {
+            try {
+              console.log(("[+] Write " + answers.server + " config file for ws://node." + answers.url).white.bold);
+              fs.writeFile(node_available, node_content, 'utf-8');
+            } catch (error10) {
+              err = error10;
+              console.log("[!] Error while adding node vhost file:".red);
+              console.log(("" + err).red);
+              return false;
+            }
+          }
           try {
+            console.log(("[+] Activate " + answers.url + " website").white.bold);
             exec("ln -s " + host_available + " " + host_enable);
+            if (indexOf.call(answers.backend, 'NodeJS') >= 0) {
+              console.log(("[+] Activate node." + answers.url + " website").white.bold);
+              exec("ln -s " + node_available + " " + node_enable);
+            }
             console.log(("[+] Restart " + answers.server + " ...").white.bold);
             exec("service " + answers.server + " restart");
             fs.appendFile(HOST_FILE, "127.0.0.1    " + answers.url + " www." + answers.url + "\n", 'utf-8');
             if (indexOf.call(answers.backend, 'NodeJS') >= 0) {
               fs.appendFile(HOST_FILE, "127.0.0.1    node." + answers.url + "\n", 'utf-8');
             }
-          } catch (error9) {
-            err = error9;
+          } catch (error11) {
+            err = error11;
             console.log("[!] Error while modifying hosts file:".red);
             console.log(("" + err).red);
             return false;

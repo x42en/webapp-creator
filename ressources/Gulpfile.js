@@ -648,7 +648,7 @@ gulp.task('default', ['clean'], function() {
   gulp.start(TASKS, function () {
       if(FIRSTIME){  
         console.log(green("[+] Start task finished"));
-        console.log(green("[+] Check http://" + CONFIG.APP_URL + "/"));
+        console.log(green("[+] Check " + CONFIG.APP_URL + "/"));
         ON_ERROR = false;
         FIRSTIME = false;
         io.emit('success',"Gulp ready...");

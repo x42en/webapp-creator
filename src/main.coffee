@@ -177,11 +177,22 @@ inquirer
 
                 if 'NodeJS' in answers.backend
                     try  
-                        # Build sockets.json
-                        console.log "[+] Store socket config file ...".white.bold
-                        fs.writeFileSync "#{www}/app/client/angular/services/sockets.json", JSON.stringify(node, null, 4) , 'utf-8'
+                        # Build client sockets.json
+                        console.log "[+] Store client socket config file ...".white.bold
+                        fs.writeFileSync "#{www}/app/client/angular/sockets.json", JSON.stringify(node, null, 4) , 'utf-8'
                     catch err
-                        console.log "[!] Error while writing socket config file:".red
+                        console.log "[!] Error while writing client socket config file:".red
+                        console.log "#{err}".red
+                        return false
+
+                    try  
+                        # Build server sockets.json
+                        console.log "[+] Store server socket config file ...".white.bold
+                        node = {}
+                        node.NODE_PORT = answers.nodeport
+                        fs.writeFileSync "#{www}/app/server/sockets.json", JSON.stringify(node, null, 4) , 'utf-8'
+                    catch err
+                        console.log "[!] Error while writing server socket config file:".red
                         console.log "#{err}".red
                         return false
 
@@ -232,7 +243,7 @@ inquirer
                 try
                     # Exec npm install
                     console.log "[+] Please wait while 'npm install' (this could take a while) ...".white.bold
-                    # exec("npm install",{cwd: www})
+                    exec("npm install",{cwd: www})
                 catch err
                     console.log "[!] Error while running 'npm install':".red
                     console.log "#{err}".red
@@ -270,8 +281,23 @@ inquirer
                             console.log "#{err}".red
                             return false
 
+                        if 'NodeJS' in answers.backend
+                            try
+                                # Write server vhost file
+                                console.log "[+] Write #{answers.server} config file for ws://node.#{answers.url}".white.bold
+                                fs.writeFile node_available, node_content, 'utf-8'
+                            catch err  
+                                console.log "[!] Error while adding node vhost file:".red
+                                console.log "#{err}".red
+                                return false
+
                         try
+                            console.log "[+] Activate #{answers.url} website".white.bold
                             exec "ln -s #{host_available} #{host_enable}"
+                            if 'NodeJS' in answers.backend
+                                console.log "[+] Activate node.#{answers.url} website".white.bold
+                                exec "ln -s #{node_available} #{node_enable}"
+
                             # Restart server
                             console.log "[+] Restart #{answers.server} ...".white.bold
                             exec "service #{answers.server} restart"
