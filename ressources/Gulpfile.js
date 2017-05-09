@@ -612,21 +612,24 @@ gulp.task('start:server', ['watch:server','watch:server_data'], function() {
 // restart server if app.js changed 
 gulp.task('watch:server', ['compile:server'], function() {
   watch( globs.server, function(){
-    gulp.start('compile:server');
-    server.restart();
-    refreshBrowser();
+    gulp.start('compile:server', function(){
+      server.restart();
+      refreshBrowser();
+    });
   });
 });
 
 // restart server if data has changed 
 gulp.task('watch:server_data', function() {
   watch( globs.server_data, function(){
-    gulp.start('copy:data');
-    // Must restart the server anyway
-    server.restart();
-    refreshBrowser();
+    gulp.start('copy:data', function(){
+      // Must restart the server anyway
+      server.restart();
+      refreshBrowser();
+    });
   });
 });
+
 
 ////////////////////  END OF SERVER PROCESS  /////////////////////////
 
