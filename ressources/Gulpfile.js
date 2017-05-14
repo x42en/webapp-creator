@@ -125,9 +125,9 @@ errorHandler = function(err) {
   ON_ERROR = true
   var output = pe.render(err);
   console.log(output);
-
+  
   // Send error message back to browser
-  io.emit(CONFIG.ERROR_EVT, 'Error occured, check console...');
+  io.emit(CONFIG.ERROR_EVT, err.message);
   
   // Necessary to handle correctly browserify events
   this.emit('end');
@@ -481,7 +481,7 @@ gulp.task('compile:scripts', function() {
     b.external(lib);
   });
 
-  var stream = b.bundle().pipe(plumber({ errorHandler: errorHandler })).pipe(source(CONFIG.APP_BUNDLE));
+  var stream = b.bundle().on('error', errorHandler).pipe(source(CONFIG.APP_BUNDLE));
 
   return stream.pipe(plumber({ errorHandler: errorHandler }))
     .pipe(gulpif(production, buffer()))
@@ -612,24 +612,21 @@ gulp.task('start:server', ['watch:server','watch:server_data'], function() {
 // restart server if app.js changed 
 gulp.task('watch:server', ['compile:server'], function() {
   watch( globs.server, function(){
-    gulp.start('compile:server', function(){
-      server.restart();
-      refreshBrowser();
-    });
+    gulp.start('compile:server');
+    server.restart();
+    refreshBrowser();
   });
 });
 
 // restart server if data has changed 
 gulp.task('watch:server_data', function() {
   watch( globs.server_data, function(){
-    gulp.start('copy:data', function(){
-      // Must restart the server anyway
-      server.restart();
-      refreshBrowser();
-    });
+    gulp.start('copy:data');
+    // Must restart the server anyway
+    server.restart();
+    refreshBrowser();
   });
 });
-
 
 ////////////////////  END OF SERVER PROCESS  /////////////////////////
 
