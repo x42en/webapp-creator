@@ -96,6 +96,7 @@ inquirer.prompt(q).then(function(answers) {
   config.REFRESH_PORT = DEV_PORT;
   config.REFRESH_EVT = "refresh";
   config.ERROR_EVT = "err";
+  config.SUCCESS_EVT = "success";
   config.APP_BUILD_CLIENT = "./build/client";
   config.APP_BUILD_SERVER = "./build/server";
   config.PATH_CLIENT = "./app/client";

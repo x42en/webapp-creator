@@ -202,15 +202,16 @@ gulp.task('bundler', ['bundle:libs'], function() {
 })
 
 createController = function(options, cb) {
-  var controllers_file = path.join(CONFIG.PATH_CLIENT,'angular/app.controllers.coffee')
   console.log(magenta('[+] Create controller ' + options.name));
+  var controllers_file = path.join(CONFIG.PATH_CLIENT,'angular/app.controllers.coffee');
   gulp.src([controllers_file])
+    .pipe(plumber({ errorHandler: errorHandler }))
     .pipe(replace('# <%End controllers%>',"require '../" + options.name.toLowerCase() + '/' + options.name.toLowerCase() + "'\n# <%End controllers%>"))
     .pipe(gulp.dest(path.join(CONFIG.PATH_CLIENT,'angular/')));
 
   // Create simple controller
   var controller_content = "class " + options.controller + "\n";
-  controller_content += "    constructor: (_) ->\n";
+  controller_content += "    constructor: (@alertService) ->\n";
   controller_content += "        console.log '[+] " + options.name + " controller loaded'\n\n";
   controller_content += "angular.module('webapp').controller '" + options.controller + "', " + options.controller + "\n";
   
@@ -218,7 +219,7 @@ createController = function(options, cb) {
     if(err) console.log ('[!] Error while creating ' + options.name.toLowerCase() + ' directory...');
     else fs.writeFile(path.join(CONFIG.PATH_CLIENT, options.name.toLowerCase() + '/' + options.name.toLowerCase() + ".coffee"), controller_content, function(err){
       if(err) io.emit(CONFIG.ERROR_EVT, err);
-      else io.emit('success', 'Controller', options.name);
+      else io.emit(CONFIG.SUCCESS_EVT, 'Controller', options.name);
       if(_.isFunction(cb)) cb();
     });
   })
@@ -227,22 +228,23 @@ createTemplate = function(options, cb) {
   console.log(magenta('[+] Create template ' + options.name));
   // First create files
   var template_content = ".container." + options.name + "\n    .row\n        .col-12\n            h1 " + options.name + " template";
-  var style_content = '.' + options.name + " {\n    h1 { color: $red; }\n}";
+  var style_content = '.' + options.name + "\n    h1\n        color: $red\n";
   return mkdirp(path.join(CONFIG.PATH_CLIENT, options.name.toLowerCase()), function(err){
     if(err) console.log ('[!] Error while creating ' + options.name.toLowerCase() + ' directory...');
     else{
       fs.writeFile(path.join(CONFIG.PATH_CLIENT, options.name.toLowerCase() + '/_' + options.name.toLowerCase() + ".pug"), template_content, function(err){
         if(err) io.emit(CONFIG.ERROR_EVT, err);
         else {
-          io.emit('success', 'Template',options.name);
-          fs.writeFile(path.join(CONFIG.PATH_CLIENT, options.name.toLowerCase() + '/_' + options.name.toLowerCase() + ".scss"), style_content, function(err){
+          io.emit(CONFIG.SUCCESS_EVT, 'Template',options.name);
+          fs.writeFile(path.join(CONFIG.PATH_CLIENT, options.name.toLowerCase() + '/_' + options.name.toLowerCase() + ".sass"), style_content, function(err){
             if(err) io.emit(CONFIG.ERROR_EVT, err);
             else{
               // Then insert file in stylesheets
               gulp.src([path.join(CONFIG.PATH_CLIENT,'main.sass')])
+                .pipe(plumber({ errorHandler: errorHandler }))
                 .pipe(replace('// <%End Import stylesheet%>',"@import '" + options.name.toLowerCase() + "/" + options.name.toLowerCase() + "'\n// <%End Import stylesheet%>"))
                 .pipe(gulp.dest(CONFIG.PATH_CLIENT));
-              io.emit('success', 'Template', options.name);
+              io.emit(CONFIG.SUCCESS_EVT, 'Template', options.name);
             }
           });
         }
@@ -251,6 +253,19 @@ createTemplate = function(options, cb) {
     }
   })
 }
+createSocket = function(options) {
+  console.log(magenta('[+] Create socket ' + options.name));
+  // First create file
+  var socket_definition = "\nclass " + options.name + "Socket extends SocketClient\n    constructor: ($rootscope) ->\n        return super($rootscope, host=SOCKETS.NODE_HOST, port=SOCKETS.NODE_PORT, service='" + options.slug.toLowerCase() + "')\n# <%End sockets definition%>";
+  var socket_registration = ".service '" + options.name.toLowerCase() + "Socket', " + options.name + "Socket\n    # <%End socket registration%>";
+  var socket_file = path.join(CONFIG.PATH_CLIENT, 'angular/app.sockets.coffee');
+  gulp.src([socket_file])
+    .pipe(plumber({ errorHandler: errorHandler }))
+    .pipe(replace('# <%End sockets definition%>', socket_definition))
+    .pipe(replace('# <%End socket registration%>', socket_registration))
+    .pipe(gulp.dest(path.join(CONFIG.PATH_CLIENT,'angular/')));
+  io.emit(CONFIG.SUCCESS_EVT, 'Socket', options.name);
+}
 createComponent = function(options, cb) {
   console.log(magenta('[+] Create component ' + options.name));
   // First create dir and template
@@ -258,13 +273,13 @@ createComponent = function(options, cb) {
     if(options.controller){
       // Add a controller
       createController(options, function() {
-        io.emit('success', 'Component', options.name);
+        io.emit(CONFIG.SUCCESS_EVT, 'Component', options.name);
         if(_.isFunction(cb)) cb();
       });
     }
     // If no controller is necessary
     else{
-      io.emit('success', 'Component', options.name);
+      io.emit(CONFIG.SUCCESS_EVT, 'Component', options.name);
     } 
   });
 }
@@ -294,7 +309,7 @@ createPage = function(options) {
     gulp.src([routes_file])
       .pipe(replace('# <%End routes%>',state_content))
       .pipe(gulp.dest(path.join(CONFIG.PATH_CLIENT,'angular/')));
-    io.emit('success', 'Page', options.name);
+    io.emit(CONFIG.SUCCESS_EVT, 'Page', options.name);
   });
 }
 createView = function(options) {
@@ -312,10 +327,31 @@ createView = function(options) {
     view_content += "                # <%End " + options.state.toLowerCase() + " views%>";
     
     gulp.src([routes_file])
+      .pipe(plumber({ errorHandler: errorHandler }))
       .pipe(replace('# <%End ' + options.state.toLowerCase() + ' views%>',view_content))
       .pipe(gulp.dest(path.join(CONFIG.PATH_CLIENT,'angular/')));
-    io.emit('success', 'View', options.name);
+    io.emit(CONFIG.SUCCESS_EVT, 'View', options.name);
   })
+}
+
+createClientService = function (options) {
+  console.log(magenta('[+] Create client service ' + options.name));
+  // First create file
+  var service_content = "class " + options.name + "Service\n    constructor: () ->\nangular.module('webapp').service '" + options.name.toLowerCase() + "Service', " + options.name + "\n";
+  var service_require = "require './services/" + options.name.toLowerCase() + "Service'\n# <%End service requires%>";
+  var service_file = path.join(CONFIG.PATH_CLIENT, 'angular/app.services.coffee');
+  // Add file
+  fs.writeFile(path.join(CONFIG.PATH_CLIENT, 'angular/services/' + options.name.toLowerCase() + "Service.coffee"), service_content, function(err){
+    if(err) io.emit(CONFIG.ERROR_EVT, err);
+    else {
+      // Then plug it to angular
+      gulp.src([service_file])
+        .pipe(plumber({ errorHandler: errorHandler }))
+        .pipe(replace('# <%End service requires%>', service_require))
+        .pipe(gulp.dest(path.join(CONFIG.PATH_CLIENT,'angular/')));
+      io.emit(CONFIG.SUCCESS_EVT, 'Service client-side', options.name);
+    }
+  });
 }
 
 createServerClass = function(options, cb){
@@ -324,13 +360,17 @@ createServerClass = function(options, cb){
   class_content += "        console.log \"" + options.name + " service loaded !\"\n";
 
   return fs.writeFile(path.join(CONFIG.PATH_SERVER, options.name + ".coffee"), class_content, function(err){
-    if(err) io.emit(CONFIG.ERROR_EVT, err);
-    else io.emit('success', 'Class', options.name);
-    if(_.isFunction(cb)) cb();
+    if(err){
+      io.emit(CONFIG.ERROR_EVT, err);
+    } else{
+      io.emit(CONFIG.SUCCESS_EVT, 'Class', options.name);
+      if(_.isFunction(cb)) cb();
+    }
+    
   })
 }
 
-createService = function(options) {
+createServerService = function(options) {
   console.log(blue('[+] Create service ' + options.name));
   return createServerClass(options, function () {
     var server_file = path.join(CONFIG.PATH_SERVER,'server.coffee');
@@ -340,9 +380,10 @@ createService = function(options) {
     service_content += "# <%End services%>";
 
     gulp.src([server_file])
+      .pipe(plumber({ errorHandler: errorHandler }))
       .pipe(replace('# <%End services%>',service_content))
       .pipe(gulp.dest(CONFIG.PATH_SERVER));
-    io.emit('success', 'Service', options.name);
+    io.emit(CONFIG.SUCCESS_EVT, 'Service server-side', options.name);
   })
 }
 
@@ -396,7 +437,9 @@ io.sockets.on('connection', function(socket) {
   socket.on('template', createTemplate);
   socket.on('page', createPage);
   socket.on('view', createView);
-  socket.on('service', createService);
+  socket.on('socket', createSocket);
+  socket.on('client-service', createClientService);
+  socket.on('server-service', createServerService);
 
   socket.on('infos', function () {
     infos = getInfos();
@@ -651,7 +694,7 @@ gulp.task('default', ['clean'], function() {
         console.log(green("[+] Check " + CONFIG.APP_URL + "/"));
         ON_ERROR = false;
         FIRSTIME = false;
-        io.emit('success',"Gulp ready...");
+        io.emit(CONFIG.SUCCESS_EVT,"Gulp ready...");
       }
     }
   )
