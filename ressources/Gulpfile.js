@@ -337,7 +337,7 @@ createView = function(options) {
 createClientService = function (options) {
   console.log(magenta('[+] Create client service ' + options.name));
   // First create file
-  var service_content = "class " + options.name + "Service\n    constructor: () ->\nangular.module('webapp').service '" + options.name.toLowerCase() + "Service', " + options.name + "\n";
+  var service_content = "class " + options.name + "Service\n    constructor: () ->\nangular.module('webapp').service '" + options.name.toLowerCase() + "Service', " + options.name + "Service\n";
   var service_require = "require './services/" + options.name.toLowerCase() + "Service'\n# <%End service requires%>";
   var service_file = path.join(CONFIG.PATH_CLIENT, 'angular/app.services.coffee');
   // Add file
